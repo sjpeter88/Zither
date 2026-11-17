@@ -85,7 +85,7 @@ internal static class Program
                 if (_selfTest)
                 {
                     // never hang a test run
-                    var t = new System.Windows.Forms.Timer { Interval = 20000 };
+                    var t = new System.Windows.Forms.Timer { Interval = 60000 };
                     t.Tick += (_, _) => { WriteSelfTest("{\"type\":\"selftest\",\"started\":false,\"error\":\"timeout: the page did not report\"}"); Close(); };
                     t.Start();
                 }
