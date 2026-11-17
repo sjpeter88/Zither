@@ -13,7 +13,7 @@ const $ = (id) => document.getElementById(id);
 const host = window.chrome && window.chrome.webview ? window.chrome.webview : null;   // Windows shell
 const params = new URLSearchParams(location.search);
 const KEY = 'concertzither.settings.v1';
-export const APP_VERSION = '1.8.0';
+export const APP_VERSION = '1.9.0';
 
 // ---- settings (remembered between sessions) -------------------------------------
 const settings = Object.assign({
@@ -24,8 +24,8 @@ const settings = Object.assign({
   tremolo: true, tremoloDelay: 320, vibDepth: 1,
   tuning: 'munich', pitch: 440, voice: 'concert', finish: 'sunburst', hands: true, midi: false,
   countIn: false, speedUp: false, favs: [], favOnly: false,
-  notation: 'tab', keyShift: {}, metroBeats: 3,
-}, (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
+  notation: 'tab', keyShift: {}, metroBeats: 3, full: {},
+},(() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
 setTuning(settings.tuning, settings.pitch);             // before anything places notes or starts the engine
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch (e) { /* private mode */ } };
 
@@ -364,6 +364,9 @@ const listEl = $('songList');
 let songIndex = -1;
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const accuracyOf = (song) => (Object.hasOwn(ACCURACY, song.accuracy) ? song.accuracy : song.take ? 'take' : 'user');
+// a piece with a full version plays it when chosen; its practice record is kept apart from the short one
+const isFull = (song) => !!(song.full && settings.full[song.id]);
+const versionOf = (song) => (isFull(song) ? { ...song, ...song.full, id: song.id + ':full' } : song);
 function renderList() {
   listEl.textContent = '';
   const q = ($('songSearch').value || '').trim().toLowerCase();
@@ -390,11 +393,11 @@ function renderList() {
       save(); renderList();
     });
     b.prepend(fav);
-    const pr = practice[song.id];
+    const pr = practice[versionOf(song).id];
     if (pr) b.querySelector('.rec').textContent = `Practised ${pr.times}×${pr.bestAcc ? ` · best ${Math.round(pr.bestAcc * 100)}% right` : ''}${pr.bestWait != null ? `, ${pr.bestWait.toFixed(1)} s wait` : ''}`;
     b.querySelector('b').textContent = song.title;
-    b.querySelector('i').textContent = song.take ? `Recorded on this zither · ${fmt(song.duration)}` : `${song.composer}${song.year ? ' · ' + song.year : ''} · ${song.key} · ${song.meter}`;
-    b.querySelector('.src').textContent = song.source;
+    b.querySelector('i').textContent = song.take ? `Recorded on this zither · ${fmt(song.duration)}` : `${song.composer}${song.year ? ' · ' + song.year : ''} · ${song.key} · ${song.meter}${song.full ? (isFull(song) ? ' · full version' : ' · short version (full one available)') : ''}`;
+    b.querySelector('.src').textContent = versionOf(song).source;
     if (song.user) {
       const del = document.createElement('span');
       del.className = 'del'; del.textContent = 'Remove'; del.setAttribute('role', 'button');
@@ -444,7 +447,7 @@ function loadSong(i) {
     settings.song = song.id; save(); syncTransport(); syncKeyRow(); syncLoopRegion();
     return;
   }
-  try { player.load({ ...song, keyShift: settings.keyShift[song.id] || 0 }); } catch (e) { console.error(e); toast('Could not load this piece.'); return; }
+  try { player.load({ ...versionOf(song), keyShift: settings.keyShift[song.id] || 0 }); } catch (e) { console.error(e); toast('Could not load this piece.'); return; }
   player.setTempoScale(settings.tempo / 100);
   $('songTitle').textContent = song.title;
   syncSongSub();
@@ -456,6 +459,11 @@ function loadSong(i) {
 // ---- moving the current piece to another key
 function syncKeyRow() {
   const song = SONGS[songIndex], row = $('keyRow');
+  $('lenRow').hidden = !song || !song.full;
+  if (song && song.full) {
+    $('lenShort').setAttribute('aria-pressed', String(!isFull(song)));
+    $('lenFull').setAttribute('aria-pressed', String(isFull(song)));
+  }
   if (!song || song.take) { row.hidden = true; return; }
   row.hidden = false;
   const sh = settings.keyShift[song.id] || 0;
@@ -469,10 +477,20 @@ function shiftKey(d) {
   save();
   const was = player.playing; loadSong(songIndex); if (was) player.play().then(syncTransport);
 }
+function setLength(full) {
+  const song = SONGS[songIndex]; if (!song || !song.full || isFull(song) === full) return;
+  if (full) settings.full[song.id] = true; else delete settings.full[song.id];
+  save();
+  const was = player.playing; loadSong(songIndex); if (was) player.play().then(syncTransport);
+  renderList();
+}
+$('lenShort').addEventListener('click', () => setLength(false));
+$('lenFull').addEventListener('click', () => setLength(true));
 function syncSongSub() {
   const song = SONGS[songIndex]; if (!song || song.take) return;
   const mode = { listen: '', melody: settings.wait ? ' · waits for your melody' : ' · you play the melody', chords: settings.wait ? ' · waits for your bass notes' : ' · you play the chords' }[settings.mode];
-  $('songSub').textContent = `${song.composer} · ${ACCURACY[accuracyOf(song)].label.toLowerCase()}${mode}`;
+  const len = song.full ? (isFull(song) ? ' · full version' : ' · short version') : '';
+  $('songSub').textContent = `${song.composer}${len} · ${ACCURACY[accuracyOf(song)].label.toLowerCase()}${mode}`;
 }
 function syncTransport() {
   $('playIcon').setAttribute('d', player.playing ? 'M7 5h3.5v14H7zM13.5 5H17v14h-3.5z' : 'M7 4l13 8-13 8z');

@@ -13,6 +13,53 @@ const hiatamadl = `"A"[ce]3 [Ac] | "E7"[Gd]3 [Be] | [eg]>[df] [ce][Gd] | "A"[Ac]
 "A"[ea]>[ce] [ce][Ac] | "E7"[Gd][Be][Be][Be] | [eg]>[df] [ce][Gd] | "A"[Ac][ce][ce][ce] |
 [ea]>[ce] [ce][Ac] | "E7"[Gd][Be][Be][Be] | [eg]>[df] [ce][Gd] |`;
 
+// Pieces with a short and a full version share their common parts.
+const wwLandler = `|: "G"[Bd]2 [Ac]2 [GB]2 | "Am"[GA]3/2 [eg]/2- [eg]4 | [ce]2 [Ac]2 [EA]2 | "D7"[DG]3/2 [df]/2- [df]4 |
+"G"[Dd]2 [Cc]2 [B,B]2 | "D7"A,3/2 [cd]/2 [cd]2 [cd]2 | [Ec]2 [DB]2 [CA]2 | "G"B,3/2 [Bd]/2 [Bd]2 [Bd]2 |
+"G"[Bd]2 [Ac]2 [GB]2 | "Am"[GA]3/2 [eg]/2- [eg]4 | [ce]2 [Ac]2 [EA]2 | "G"[DG]3/2 [gb]/2- [gb]4 |
+[dg]2 [Bd]2 [GB]3/2 [DG]/2 | "D7"[CF]3/2 [ce]/2- [ce]4 | [DF]3/2 [ce]/2 [ce]2 [Fd]2 `;
+const wwVivace = `"Am"[ce]2 [df]2 [eg]2 | "G"[eg]2 [Bd] G [Bd] G | "D7"[ce]2 [cd] F [cd] F | "G"[Be]2 [Bd] G [Bd] G |
+"Am"[ce]2 [df]2 [eg]2 | "G"[gb]2 [Bd] G [Bd] G | "D7"[ce]2 [cd] F [cd] F | "G"G2 z4 |]`;
+
+const brahmsA = `"Ab"[Ec]3 [CA] [CA] [Ec] | [Ec]3 [CA] [CA] [Ec] | "Db"[Fd] e/d/ "Ab"[Ec]2 "Eb7"[DB]2 | "Ab"[Ac]3 A A [ce] |
+"Fm"[cf]3 [Ac] [Ac] e | [cf]3 [Ac] [Ac] e |`;
+const brahmsB = `"Eb7"[de]3 [GB] [GB] [de] | "Ab"[ce]3 [Ac] [Ac] e | "Ab7"[_ga]3 [ce] [ce] [_ga] | "Db"[fa]3 [df] [df] a |
+"Bb7"[fb]3 [=df] [df] a | "Eb7"a g f2 e2 |`;
+
+// Thunder and Lightning: bars 5-43 of the score (the first part of the polka)
+const blitzPolka = `"D7"c4 [FD]4 | c4 [FD]4 | [ec]2 z[ec] [ec]2 z[ec] | [ec]6 [fd][ec] |
+"G"[BG]4 G4 | [BG]4 G4 | e2 ze e2 ze | e6 [fd][ec] |
+"D7"c4 f4 | f4 c'4 | [fd]2 z[fd] [fd]2 z[fd] | [fd]4- [fd]edc |
+"G"[BG]4 g4 | g4 [bg]4 | g2 zg g2 zg | g6 [fd][ec] |
+"D7"c4 [FD]4 | c4 [FD]4 | [ec]2 z[ec] [ec]2 z[ec] | [ec]6 [fd][ec] |
+"G"[BG]4 G4 | [BG]4 G4 | e2 ze e2 ze | e6 ed |
+"A7"[^cA]4 g4 | g4 [bg]4 | "D"[af]3[af] [af]3[af] | [af]4 ba^ga |
+"G"b2 g2 e2 f2 | "A7"g2 a2 b2 ^c'2 | "D"d'2 d2 d2 d2 | _e2 d2 =e2 d2 |
+"Bb"[=fd]6 d2 | "D"_e2 d2 =e2 d2 | [fd]6 d2 | "G#dim"[^g=f]2 z2 d2 z2 |
+[^g=f]2 z2 d2 z2 | "D7"[af]2 z2 z2 e'2 | d'2 c'2 b2 a2 |`;
+const blitzIntro = `"D7"d2 z2 "G#dim/D"[Bd]2 z2 | "Gm/D"[_Bd]2 z2 "D"[Ad]2 z2 | "Em7/D"[Gd]2 z2 "D"[Fd]2 z2 | "Em7/D"[Gd]2 z2 "D7"z2 [fd][ec] |
+`;
+const blitzStrain = `|: "G"c'2 d2 b2 d2 | a2 d2 g2 d2 | "Am/C"[cf]2 z2 [ce]2 z2 | [c^d]2 z2 [ce]2 z2 |
+"D7"[cd]4 [fc']3 [df] | [df]8 | "G"[Bd]4 [gb]3 [dg] | g2 d'2 e'2 d'2 |
+c'2 d2 b2 d2 | a2 d2 g2 d2 | "Am/C"[cf]2 z2 [ce]2 z2 | [c^d]2 z2 [ce]2 z2 |
+"G"[Bd]4 [gb]3 [dg] | [Bd]4 [bd']3 [gb] | "D7"e'2 d'2 a2 b2 |1 "G"g2 d'2 e'2 d'2 :|2 `;
+// the trio is in C major: its F naturals are written out
+const blitzTrio = `"G7"a' g' =f' e' d'2 z2 | =f' e' d' c' b2 z2 | g'2 =f'2 d'2 b2 | g2 z2 z2 G2 |:
+"C"c4 e4 | a4- a3 g | "G7"=f4 B2 G2 | [=fg]8 | =f4 B2 G2 | [=fg]8 | "C"e4 c3 A | G4 z2 G2 |
+c4 e4 | a4- a3 g | "G7"=f4 B2 G2 | [=fg]8 | ^g2 z2 a2 z2 | ^a2 z2 b2 z2 | d'2 e'2 =f'2 ^f'2 |1 g'2 z2 z2 G2 :|2 g'2 z2 z4 |:
+"C"{^g}a2 z2 {f}g2 z2 | d'3 c' g2 z2 | {^g}a2 z2 {f}g2 z2 | "G7"c'3 b g2 z2 |
+{^g}a2 z2 {f}g2 z2 | g'4 g2 z2 | {^g}a2 z2 {f}g2 z2 | "C"g'4 g2 z2 |
+{^g}a2 z2 {f}g2 z2 | d'3 c' g2 z2 | {^g}a2 z2 {f}g2 z2 | "G"c'3 b g2 z2 |
+{^a}b2 z2 {^c'}d'2 z2 | "Am"e'4 e2 z2 | "D7"f'4 f2 z2 |1 "G"g'4 g2 z2 :|2 "G"g'2 z2 "Adim"c'4 |
+"G"b2 z2 "F#dim"a4 | "G"g2 z2 "G7"[=fa]2 z2 | "C"[eg]2 z2 "G7"[=df]2 G2 |
+"C"c4 e4 | a4- a3 g | "G7"=f4 B2 G2 | [=fg]8 | =f4 B2 G2 | [=fg]8 | "C"e4 c3 A | G4 z2 G2 |
+c4 e4 | a4- a3 g | "Dm"=f4 e2 d2 | b6 a2 | "C/G"a2 z2 g2 z2 | f2 g2 c'2 e2 | [ce]4 "G7"[Bd]4 | "C"c2 c2 c2 z2 ||
+`;
+const blitzCoda = `"G"g'2 g'2 g'2 z2 | "G7"g8 | "C"g2 "G"g2 "C"g2 z2 | "D7"[fa]4 [f^a]4 |
+"G"[gb]2 g2 d2 z2 | "G7"g8 | "C"g2 "G"g2 "C"g2 z2 | "G/D"[gb]4 "D7"[fa]4 |
+"C#dim"g2 z2 [_B^c]2 z2 | g2 z2 [_B^c]2 z2 | "D7"D E F G A B c d | c B A B c d e f |
+"G"g2 "D7"[df]2 "G"g2 "D7"[df]2 | "G"g2 "D7"[df]2 "G"g2 "D7"[df]2 | "G"g2 z2 z4 | [gb]2 z2 z4 | G,8 |]`;
+
 export const SONGS = [
   {
     id: 'wienerwald', category: 'Ländler & Waltzes',
@@ -20,12 +67,15 @@ export const SONGS = [
     composer: 'Johann Strauss II', year: 1868, key: 'G', meter: '3/4', unit: '1/8', tempo: 108, style: 'waltz',
     accuracy: 'eye',
     source: 'Read by eye from the Cranz piano edition (Internet Archive scan): the 16-bar Moderato ländler of the introduction and its Vivace tag. The D-major middle strain is omitted.',
-    abc: `|: "G"[Bd]2 [Ac]2 [GB]2 | "Am"[GA]3/2 [eg]/2- [eg]4 | [ce]2 [Ac]2 [EA]2 | "D7"[DG]3/2 [df]/2- [df]4 |
-"G"[Dd]2 [Cc]2 [B,B]2 | "D7"A,3/2 [cd]/2 [cd]2 [cd]2 | [Ec]2 [DB]2 [CA]2 | "G"B,3/2 [Bd]/2 [Bd]2 [Bd]2 |
-"G"[Bd]2 [Ac]2 [GB]2 | "Am"[GA]3/2 [eg]/2- [eg]4 | [ce]2 [Ac]2 [EA]2 | "G"[DG]3/2 [gb]/2- [gb]4 |
-[dg]2 [Bd]2 [GB]3/2 [DG]/2 | "D7"[CF]3/2 [ce]/2- [ce]4 | [DF]3/2 [ce]/2 [ce]2 [Fd]2 |1 "G"G2 z4 :|2 "G"G2 z3 d ||
-"Am"[ce]2 [df]2 [eg]2 | "G"[eg]2 [Bd] G [Bd] G | "D7"[ce]2 [cd] F [cd] F | "G"[Be]2 [Bd] G [Bd] G |
-"Am"[ce]2 [df]2 [eg]2 | "G"[gb]2 [Bd] G [Bd] G | "D7"[ce]2 [cd] F [cd] F | "G"G2 z4 |]`,
+    abc: `${wwLandler}|1 "G"G2 z4 :|2 "G"G2 z3 d ||
+${wwVivace}`,
+    full: {
+      source: 'Read by eye from the Cranz piano edition (Internet Archive scan): the whole zither solo of the introduction, i.e. the 16-bar Moderato ländler, its D-major middle strain and the Vivace tag.',
+      abc: `${wwLandler}|1 "G"G2 z4 :|2 "G"G2 z4 ||
+"D"[FA] [Ad] [Ad]4 | "A7"[G^c] [Ag] g3 a | [gb] a [^cg] [A^c] [^cg] [A^c] | "D"[fa] a [df] [Ad] [df] [Ad] |
+"D"[FA] [Ad] [Ad]4 | "A7"[G^c] [Ag] g3 a | [gb] a [^cg] [A^c] [Aa] [A^c] | "D"[Ad]2 z3 d ||
+${wwVivace}`,
+    },
   },
   {
     id: 'appenzeller', category: 'Ländler & Waltzes',
@@ -81,10 +131,18 @@ C E G | c2 [gc'] | [gc']2 [eg] | [eg]2 C | "C7"C E G | "F"c2 [ac'] | [ac']2 [fa]
     composer: 'Johannes Brahms', year: 1865, key: 'Ab', meter: '3/4', unit: '1/8', tempo: 92, style: 'waltz',
     accuracy: 'score',
     source: 'Melody and harmony from the Mutopia Project edition (ed. Joseffy, public domain). Abridged: the opening strain and its return; the middle strain and the triplet variation are omitted.',
-    abc: `|: "Ab"[Ec]3 [CA] [CA] [Ec] | [Ec]3 [CA] [CA] [Ec] | "Db"[Fd] e/d/ "Ab"[Ec]2 "Eb7"[DB]2 | "Ab"[Ac]3 A A [ce] |
-"Fm"[cf]3 [Ac] [Ac] e | [cf]3 [Ac] [Ac] e | "Cm"g f "G7"e2 =d2 | "Cm"[ce]3 [EG] [EG] c :|
-"Ab"[Ec]3 [CA] [CA] [Ec] | [Ec]3 [CA] [CA] [Ec] | "Db"[Fd] e/d/ "Ab"[Ec]2 "Eb7"[DB]2 | "Ab"[Ac]3 A A [ce] |
-"Fm"[cf]3 [Ac] [Ac] e | [cf]3 [Ac] [Ac] e | "Eb7"a e d2 B2 | "Ab"[EA]4 z2 |]`,
+    abc: `|: ${brahmsA} "Cm"g f "G7"e2 =d2 | "Cm"[ce]3 [EG] [EG] c :|
+${brahmsA} "Eb7"a e d2 B2 | "Ab"[EA]4 z2 |]`,
+    full: {
+      source: 'Melody and harmony from the Mutopia Project edition (ed. Joseffy, public domain): the whole waltz, with the middle strain, the return of the theme and the closing variation over triplets an octave higher.',
+      abc: `|: ${brahmsA} "Cm"g f "G7"e2 =d2 |1 "Cm"[ce]3 [EG] [EG] c :|2 "Cm"[ce]3 [Gc] [Gc] e |
+${brahmsB}
+${brahmsA} "Ab/C"a e "Eb7"d2 B2 | "Ab"[EA]2 z [Ac] [Ac] e |
+${brahmsB}
+"Ab"[ec']2 (3z[CA][Ec] (3[ac'][ec'][ac'] | [ec']2 (3z[CA][Ec] (3[ac'][ec'][ac'] | "Db"[ad'] e'/d'/ [ac']2 [ab]2 |
+"Ab"[ac']2 (3z[CA][Ec] (3[ac'][ec'][fc'] | "Fm"[c'f']2 (3z[CA][Ec] (3[ac'][ec'][fc'] | [c'f']2 (3z[CA][Ec] (3[ac'][ec'][ac'] |
+"Ab/C"[c'a'] e' "Eb7"[gd']2 [db]2 | "Ab"[c'a']2 z4 |]`,
+    },
   },
   {
     id: 'augustin', category: 'Ländler & Waltzes',
@@ -101,16 +159,14 @@ C E G | c2 [gc'] | [gc']2 [eg] | [eg]2 C | "C7"C E G | "F"c2 [ac'] | [ac']2 [fa]
     composer: 'Johann Strauss II', year: 1868, key: 'G', meter: '2/4', unit: '1/16', tempo: 126, style: 'polka',
     accuracy: 'score',
     source: 'Melody from the Mutopia Project edition of the piano score (C. M. Cady, 1878; public domain), converted from its LilyPond source; chords taken from its left hand. Abridged: the first part only (main theme, its repeat and the closing phrase); the introduction, the middle strain and the trio are omitted.',
-    abc: `[fd][ec] | "D7"c4 [FD]4 | c4 [FD]4 | [ec]2 z[ec] [ec]2 z[ec] | [ec]6 [fd][ec] |
-"G"[BG]4 G4 | [BG]4 G4 | e2 ze e2 ze | e6 [fd][ec] |
-"D7"c4 f4 | f4 c'4 | [fd]2 z[fd] [fd]2 z[fd] | [fd]4- [fd]edc |
-"G"[BG]4 g4 | g4 [bg]4 | g2 zg g2 zg | g6 [fd][ec] |
-"D7"c4 [FD]4 | c4 [FD]4 | [ec]2 z[ec] [ec]2 z[ec] | [ec]6 [fd][ec] |
-"G"[BG]4 G4 | [BG]4 G4 | e2 ze e2 ze | e6 ed |
-"A7"[^cA]4 g4 | g4 [bg]4 | "D"[af]3[af] [af]3[af] | [af]4 ba^ga |
-"G"b2 g2 e2 f2 | "A7"g2 a2 b2 ^c'2 | "D"d'2 d2 d2 d2 | _e2 d2 =e2 d2 |
-"Bb"[=fd]6 d2 | "D"_e2 d2 =e2 d2 | [fd]6 d2 | "G#dim"[^g=f]2 z2 d2 z2 |
-[^g=f]2 z2 d2 z2 | "D7"[af]2 z2 z2 e'2 | d'2 c'2 b2 a2 | "G"g4 z4 |]`,
+    abc: `[fd][ec] | ${blitzPolka} "G"g4 z4 |]`,
+    full: {
+      source: 'Melody from the Mutopia Project edition of the piano score (C. M. Cady, 1878; public domain), converted from its LilyPond source; chords taken from its left hand. The whole polka: introduction, first part with its repeated strain, the trio in C and the finale with its coda.',
+      abc: `${blitzIntro}${blitzPolka}
+${blitzStrain}"G"g2 g2 g2 z2 ||
+${blitzTrio}${blitzIntro}${blitzPolka}
+${blitzStrain}${blitzCoda}`,
+    },
   },
   {
     id: 'hiatamadl', category: 'Polkas & Folk Dances',
