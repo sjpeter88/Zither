@@ -77,6 +77,12 @@ export class TabStrip {
     for (let s = 0; s < MELODY_COUNT; s++) { c.fillStyle = '#b9aa92'; c.fillText(NAMES[s], gutter / 2, lineY(s)); }
     c.strokeStyle = p.waiting ? '#ffe2ad' : 'rgba(244,213,148,0.85)'; c.lineWidth = p.waiting ? 2.5 : 1.5;
     c.beginPath(); c.moveTo(head, 14); c.lineTo(head, h - 3); c.stroke();
+    if (p.wait && p.mode !== 'listen') {
+      const st = p.stats, n = p.gateCount();
+      const avg = st.hit ? (st.waitSum / st.hit).toFixed(1) : '0.0';
+      c.fillStyle = '#b9aa92'; c.font = '600 11px system-ui, sans-serif'; c.textAlign = 'right';
+      c.fillText(`${st.hit} / ${n} notes · ${st.wrong} wrong · waited ${avg} s a note`, w - 8, 9);
+    }
     if (p.waiting) {
       c.fillStyle = '#ffe2ad'; c.font = '600 11px system-ui, sans-serif'; c.textAlign = 'right';
       c.fillText('your turn', head - 6, 9);

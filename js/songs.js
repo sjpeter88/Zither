@@ -194,6 +194,7 @@ C E G | c2 [gc'] | [gc']2 [eg] | [eg]2 C | "C7"C E G | "F"c2 [ac'] | [ac']2 [fa]
 
 export const ACCURACY = {
   user: { label: 'Imported', note: 'Added by you from ABC notation.' },
+  take: { label: 'Recording', note: 'Recorded by you on this zither.' },
   score: { label: 'From score', note: 'Transcribed from a public-domain edition.' },
   eye: { label: 'Read from scan', note: 'Read by eye from a scanned score; small misreadings are possible.' },
   memory: { label: 'From memory', note: 'Approximate: written from memory, not checked against a score.' },

@@ -4,13 +4,15 @@ import { engineConfig, MELODY_COUNT } from './zither-model.js';
 
 const KEEP = new Set(['pluck', 'fret', 'bend', 'damp', 'dampAll', 'vib']);
 const MAX_SECONDS = 600;
+const TAKE_KEY = 'concertzither.take.v1';
 
 export class Recorder {
   constructor(audio, scene) {
     this.audio = audio; this.scene = scene;
     this.events = []; this.recording = false; this.playing = false;
     this.t0 = 0; this.duration = 0; this.timers = [];
-    this.onChange = null;
+    this.onChange = null; this.fromLibrary = false;
+    try { const saved = JSON.parse(localStorage.getItem(TAKE_KEY)); if (saved && saved.length) this.loadTake(saved, false); } catch (e) { /* none */ }
     // every command on its way to the engine passes through here
     audio.tap = (m) => {
       if (!this.recording || this.playing || !KEEP.has(m.type)) return;
@@ -35,6 +37,31 @@ export class Recorder {
     const first = this.events.find((e) => e.m.type === 'pluck');
     if (first) { const lead = Math.max(0, first.t - 0.15); for (const e of this.events) e.t = Math.max(0, e.t - lead); }
     this.duration = this.events.length ? this.events[this.events.length - 1].t : 0;
+    this.fromLibrary = false;
+    this.persist();
+    if (this.onChange) this.onChange();
+  }
+
+  persist() {
+    try {
+      if (this.hasTake && !this.fromLibrary) localStorage.setItem(TAKE_KEY, JSON.stringify(this.events));
+      else if (!this.hasTake) localStorage.removeItem(TAKE_KEY);
+    } catch (e) { /* storage full or private: the take still works this session */ }
+  }
+
+  /** Load a stored take (from the library or the previous session). */
+  loadTake(events, fromLibrary = true) {
+    this.stopPlayback();
+    this.events = events.map((e) => ({ t: e.t, m: { ...e.m } }));
+    this.duration = this.events.length ? this.events[this.events.length - 1].t : 0;
+    this.fromLibrary = fromLibrary;
+    if (this.onChange) this.onChange();
+  }
+
+  discard() {
+    this.stopPlayback(); this.recording = false; this.events = []; this.duration = 0;
+    if (!this.fromLibrary) this.persist();
+    this.fromLibrary = false;
     if (this.onChange) this.onChange();
   }
 

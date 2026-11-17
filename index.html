@@ -97,6 +97,9 @@
   <label class="row"><span>Sympathetic resonance</span><input id="resonance" type="range" min="0" max="100"></label>
   <label class="row"><span>Chord pattern tempo <output id="chordBpmOut"></output> bpm</span><input id="chordBpm" type="range" min="60" max="180"></label>
   <label class="row switch"><span>Vibrato on long notes (songs and keyboard)</span><input id="vibrato" type="checkbox"><i></i></label>
+  <label class="row"><span>Vibrato depth</span><input id="vibDepth" type="range" min="0" max="200"></label>
+  <label class="row switch"><span>Tremolo when resting on a plucked string</span><input id="tremolo" type="checkbox"><i></i></label>
+  <label class="row"><span>Tremolo starts after <output id="tremoloDelayOut"></output> s</span><input id="tremoloDelay" type="range" min="200" max="1200" step="20"></label>
   <label class="row switch"><span>Mirror instrument (left-handed)</span><input id="mirror" type="checkbox"><i></i></label>
   <label class="row switch"><span>Note names under the strings</span><input id="labels" type="checkbox"><i></i></label>
   <label class="row switch"><span>Touching a fret sounds the note</span><input id="tapSounds" type="checkbox"><i></i></label>
@@ -107,6 +110,7 @@
     <p><b>Keys:</b> <kbd>Q</kbd>–<kbd>]</kbd> chords in string order · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> major, minor, 7th · <kbd>Space</kbd> bass + chord · hold a chord key to keep its pattern going · <kbd>Z</kbd> bass · <kbd>X</kbd> chord · <kbd>C</kbd> alternate bass · <kbd>V</kbd> arpeggio · <kbd>↑</kbd> <kbd>↓</kbd> glissando · <kbd>A</kbd>–<kbd>'</kbd> melody (with <kbd>Shift</kbd>: tremolo) · <kbd>F2</kbd> zoom · <kbd>F1</kbd> manual · <kbd>Enter</kbd> play/pause · <kbd>Esc</kbd> damp.</p>
   </div>
   <p id="audioInfo" class="fine"></p>
+  <p id="appVersion" class="fine"></p>
 </section>
 
 <section id="manual" class="sheet panel" role="dialog" aria-label="User's manual" hidden>
@@ -196,7 +200,7 @@
     <p>All pieces are public-domain compositions in arrangements made for this instrument. Each carries a label saying how its notes were obtained: <b>From score</b> (transcribed from a public-domain edition), <b>Read from scan</b> (read by eye from a scanned score, so small misreadings are possible) or <b>From memory</b> (approximate, not checked against a score). The selected piece also shows its source.</p>
 
     <p><b>Adding your own songs.</b> <i>Add a song…</i> at the top of the library opens a box where you can paste a tune in ABC notation, a plain-text format widely used for folk music. The melody is arranged for the fretboard, and if the tune includes chord symbols the bass and accompaniment are added. Your songs appear under <i>My Songs</i>, are kept on this device only, and can be removed from the list when selected.</p>
-    <p><b>Recording.</b> Press the round record button, play, and press it again to finish. A small bar appears with <b>Play take</b>, which replays your playing on the instrument, and <b>Save audio</b>, which saves it as a WAV sound file. If a song is playing while you record, it is recorded too. A take is kept until you record another or discard it; it is not kept after you close the app.</p>
+    <p><b>Recording.</b> Press the round record button, play, and press it again to finish. A small bar appears with <b>Play take</b>, which replays your playing on the instrument, and <b>Save audio</b>, which saves it as a WAV sound file. If a song is playing while you record, it is recorded too. The latest take is kept on this device, even after you close the app, until you record another or discard it with ×. To keep a take for good, press <b>Keep</b> and give it a name: it then appears in the library under <i>My Recordings</i>, where you can play it, save it as audio, or remove it. (Play all skips recordings.)</p>
 
     <h3 id="m-practice">Practising</h3>
     <p>The note button in the top bar opens the practice strip under it.</p>
@@ -209,6 +213,8 @@
     </ul>
     <p><b>Wait for me</b> (with <i>I play melody</i>) makes the song stop at every melody note until you pluck it. The note is shown on the fretboard a moment early, the string glows while the song is waiting, and the strip says <i>your turn</i>. Any way of sounding the right pitch counts: the lit fret, the same note on another string, or a melody key. Wrong notes are simply ignored, so you can take as long as you need. Without <i>Wait for me</i> the song keeps its own tempo; use the tempo slider to slow it down.</p>
     <p>With <i>I play chords</i>, <b>Wait for me</b> stops the song at the start of each bar, and at each chord change, until you pluck the bass string of the chord, which glows amber. The bass note in either of the two lower groups counts. Between those points the song runs on, and the chord strings stay lit for you to pluck in rhythm.</p>
+    <p><b>Score.</b> With <i>Wait for me</i> on, the right-hand end of the strip counts the notes you have played out of the notes in the piece, the wrong notes, and how long the song waited for you on average. A summary appears when the piece ends. Start the piece again to reset it.</p>
+    <p><b>Zoom while practising.</b> If you have zoomed in, the view follows what you need to play next: the fretboard for melody notes, the chord strings for bass notes.</p>
 
     <h3 id="m-views">Views</h3>
     <ul>
@@ -226,6 +232,8 @@
       <li><b>Sympathetic resonance</b> — how strongly strings set one another ringing.</li>
       <li><b>Chord pattern tempo</b> — the speed of the chord patterns, in beats per minute.</li>
       <li><b>Vibrato on long notes</b> — adds a gentle vibrato to longer melody notes in song playback and on the melody keys.</li>
+      <li><b>Vibrato depth</b> — how wide the vibrato is, both the automatic kind and the kind you make by rocking your finger.</li>
+      <li><b>Tremolo</b> — turns the rest-on-the-string tremolo on or off, and sets how long you must rest before it starts. Lengthen the delay if tremolo starts when you do not want it.</li>
       <li><b>Mirror instrument</b> — flips the zither left to right for left-handed playing.</li>
       <li><b>Note names under the strings</b> — shows or hides the printed note names.</li>
       <li><b>Touching a fret sounds the note</b> — see <i>Playing by touch</i>.</li>
@@ -234,6 +242,8 @@
     <h3 id="m-install">iPad and Windows</h3>
     <p><b>iPad:</b> open the instrument's web address in Safari, tap Share, then <i>Add to Home Screen</i>. Opened from the home screen it runs full screen, and after the first visit it also works without an internet connection. Hold the iPad in landscape.</p>
     <p><b>Windows:</b> run <i>ConcertZither.exe</i>. Nothing needs installing. On a touch-screen PC, touch works as on the iPad.</p>
+
+    <p>The version number is shown at the bottom of Settings. After an update, compare it on each device to check it has the new version.</p>
 
     <h3 id="m-trouble">If something is wrong</h3>
     <ul>
@@ -265,6 +275,7 @@
   <span id="takeInfo"></span>
   <button id="takePlay" class="chip">Play take</button>
   <button id="takeSave" class="chip">Save audio</button>
+  <button id="takeKeep" class="chip" title="Keep this recording in the song library">Keep</button>
   <button id="takeClose" class="icon" aria-label="Discard take" title="Discard"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
 </div>
 

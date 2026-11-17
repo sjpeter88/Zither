@@ -80,9 +80,10 @@ export class ZitherInput {
     p.lastString = string; p.lastT = performance.now();
     // resting on the string after plucking it turns into a tremolo
     this._stopTremolo(p);
+    if (this.opt.tremolo === false) { if (this.onPlay) this.onPlay(); return; }
     p.tremTimer = setTimeout(() => {
       p.tremStop = startTremolo(this.audio, this.scene, string, () => (string < MELODY_COUNT ? this.heldFret(string) : undefined));
-    }, 320);
+    }, this.opt.tremoloDelay || 320);
     if (this.onPlay) this.onPlay();
   }
 
@@ -112,7 +113,7 @@ export class ZitherInput {
         // across the string: push it sideways to bend the note up
         const side = Math.abs(loc.d - STRINGS[p.string].d);
         // rocking the fingertip along the string inside the fret: vibrato
-        const dx = loc.x - p.xRef, rock = Math.sign(dx) * Math.min(1, Math.max(0, Math.abs(dx) - 1.2) / 7) * 0.3;
+        const dx = loc.x - p.xRef, rock = Math.sign(dx) * Math.min(1, Math.max(0, Math.abs(dx) - 1.2) / 7) * 0.3 * (this.opt.vibDepth == null ? 1 : this.opt.vibDepth);
         const bend = Math.min(2, Math.max(0, side - 4) / 11) + rock;
         if (Math.abs(bend - p.bend) > 0.01) { p.bend = bend; this.audio.bend(p.string, bend); }
       }

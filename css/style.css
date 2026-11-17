@@ -305,3 +305,4 @@ kbd { font: 11px var(--sans); padding: 1px 5px; border-radius: 4px; border: 1px 
 .take, .toast { bottom: calc(var(--chord-h, 76px) + 18px); }
 @media (max-width: 1300px) { .brand-text { display: none; } .tempo input { width: 54px; } #topbar { gap: 9px; } .views .chip { padding: 0 9px; } }
 @media (max-width: 1100px) { .time { display: none; } .tempo output { display: none; } }
+#appVersion { margin-top: 2px; }

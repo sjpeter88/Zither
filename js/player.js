@@ -264,7 +264,8 @@ export class SongPlayer {
     this.audio = audio; this.scene = scene;
     this.song = null; this.compiled = null;
     this.playing = false; this.pos = 0;         // seconds of song time at the song's own tempo
-    this.scale = 1; this.loop = false; this.vibrato = true;
+    this.scale = 1; this.loop = false; this.vibrato = true; this.vibDepth = 1;
+    this.stats = { hit: 0, wrong: 0, waitSum: 0 }; this.waitStart = 0; this.onGate = null;
     // practice: who plays what, and whether the song waits for the player's melody notes
     this.mode = 'listen';             // 'listen' | 'melody' (you play the melody) | 'chords' (you play the chords)
     this.wait = false; this.gate = null; this.gateDone = -1; this.waiting = false;
@@ -276,6 +277,7 @@ export class SongPlayer {
     this.stop();
     this.song = song;
     this.compiled = compileSong(song);
+    this.resetStats();
     this.spb = 60 / song.tempo;                 // seconds per beat
     this.duration = this.compiled.beats * this.spb + 2.5;
     this.pos = 0; this.next = 0;
@@ -351,6 +353,14 @@ export class SongPlayer {
     this.visuals.add(id);
   }
 
+  /** How many notes the player has to supply in this piece in the current practice mode. */
+  gateCount() {
+    if (!this.compiled || this.mode === 'listen') return 0;
+    const isGate = this.mode === 'melody' ? (e) => e.type === 'mel' && e.top : (e) => e.type === 'open' && e.bass;
+    return this.compiled.events.filter(isGate).length;
+  }
+  resetStats() { this.stats = { hit: 0, wrong: 0, waitSum: 0 }; }
+
   /** Position in beats right now. */
   beat() {
     if (this.waiting && this.gate) return this.gate.t;          // held at the note being waited for
@@ -364,7 +374,9 @@ export class SongPlayer {
     if (!g || !this.playing) return false;
     const now = this.audio.now, tg = this.anchor + g.t * this.spb / this.scale;
     const right = g.bass ? string >= 17 && ((midi - g.midi) % 12 + 12) % 12 === 0 : midi === g.midi;
-    if (!right || now < tg - 0.45) return false;
+    if (!right || now < tg - 0.45) { if (this.waiting) this.stats.wrong++; return false; }
+    this.stats.hit++;
+    if (this.waiting) this.stats.waitSum += now - this.waitStart;
     if (now > tg) this.anchor = now - g.t * this.spb / this.scale;
     this.gateDone = g.i; this.gate = null; this.waiting = false;
     this._tick();
@@ -386,6 +398,7 @@ export class SongPlayer {
         if (i < ev.length) {
           const e = ev[i];
           this.gate = { i, t: e.t, e, bass: userChords, midi: STRINGS[e.string].midi + (e.fret || 0) };
+          if (this.onGate) this.onGate(this.gate);
           if (userMelody) this._later(Math.max(now, sec(e.t) - 1.2), () => sc.setFinger(e.string, e.fret, 'song'));     // show it a little ahead
         }
       }
@@ -394,6 +407,7 @@ export class SongPlayer {
         limit = g.t;
         const tg = sec(g.t);
         if (now >= tg) {                         // the note is due: hold the song here
+          if (!this.waiting) this.waitStart = now;
           this.anchor += now - tg; this.waiting = true;
           if (userMelody) sc.setFinger(g.e.string, g.e.fret, 'song');
           sc.flash(g.e.string, 0.5);
@@ -417,7 +431,7 @@ export class SongPlayer {
         const end = sec(e.t + e.dur), mine = userMelody && e.top;      // the player's own note: shown but not sounded
         if (!mine) {
           a.pluck(e.string, e.vel, e.fret, time);
-          if (this.vibrato && end - time > 0.6) a.vibrato(e.string, 0.16, 5.5, 0.25, time);
+          if (this.vibrato && end - time > 0.6) a.vibrato(e.string, 0.16 * this.vibDepth, 5.5, 0.25, time);
           if (e.damp) a.damp(e.string, Math.max(time + 0.05, end + 0.03));
         }
         this._later(time, () => { sc.setFinger(e.string, e.fret, 'song'); sc.flash(e.string, 0.9); });
