@@ -5,7 +5,9 @@ import { parseTune, compileSong, parseChord } from '../web/js/player.js';
 import { STRINGS, midiName } from '../web/js/zither-model.js';
 
 let bad = 0;
-for (const song of SONGS) {
+// a piece with a full version is checked in both lengths
+const all = SONGS.flatMap((s) => (s.full ? [s, { ...s, ...s.full, title: s.title + ' (full)' }] : [s]));
+for (const song of all) {
   const tune = parseTune(song);
   const [n, d] = song.meter.split('/').map(Number), bar = n * 4 / d;
   const problems = [];

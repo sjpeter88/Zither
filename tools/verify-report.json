@@ -809,26 +809,26 @@
     }
   ],
   "performance_48000": {
-    "realtimeFactor": 11.790722226541067,
-    "meanBlockMs": 0.22616652444444546,
+    "realtimeFactor": 10.106030790717748,
+    "meanBlockMs": 0.2638688444444444,
     "budgetMs": 2.6666666666666665,
-    "p999Ms": 0.8632999999972526,
-    "maxMs": 6.334399999992456,
+    "p999Ms": 0.8708999999798834,
+    "maxMs": 3.975800000014715,
     "blocksOverBudget": 1,
     "blocks": 11250,
     "pass": true
   },
   "performance_96000": {
-    "realtimeFactor": 5.896924588713102,
-    "meanBlockMs": 0.22610655999999985,
+    "realtimeFactor": 4.8494037076213115,
+    "meanBlockMs": 0.27494789333333286,
     "budgetMs": 1.3333333333333333,
-    "p999Ms": 0.81950000001234,
-    "maxMs": 5.490699999994831,
-    "blocksOverBudget": 4,
+    "p999Ms": 0.7713000000221655,
+    "maxMs": 1.2740999999805354,
+    "blocksOverBudget": 0,
     "blocks": 22500,
     "pass": true
   },
   "allPassed": true,
   "node": "v24.15.0",
-  "date": "2026-11-17T15:58:22.118Z"
+  "date": "2026-11-17T18:40:50.536Z"
 }
