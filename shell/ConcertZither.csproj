@@ -28,6 +28,15 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
   </ItemGroup>
 
+  <!-- every published build is named with its version (ConcertZither-1.6.0.exe) and
+       earlier builds in the output folder are left alone, so each version is kept -->
+  <Target Name="VersionedExe" AfterTargets="Publish">
+    <Delete Files="$(PublishDir)$(AssemblyName)-$(Version).exe" />
+    <Move SourceFiles="$(PublishDir)$(AssemblyName).exe" DestinationFiles="$(PublishDir)$(AssemblyName)-$(Version).exe" />
+    <Delete Files="@(_DocFiles);$(PublishDir)Microsoft.Web.WebView2.Core.xml;$(PublishDir)Microsoft.Web.WebView2.WinForms.xml;$(PublishDir)Microsoft.Web.WebView2.Wpf.xml" />
+    <Message Importance="high" Text="Built $(PublishDir)$(AssemblyName)-$(Version).exe" />
+  </Target>
+
   <!-- the static web app is embedded file by file and unpacked on first run -->
   <ItemGroup>
     <EmbeddedResource Include="..\web\**\*" Exclude="..\web\sw.js;..\web\.git\**;..\web\.gitattributes;..\web\README.md;..\web\.nojekyll" LinkBase="web">

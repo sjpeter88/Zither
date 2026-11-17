@@ -8,13 +8,13 @@ and 37 open strings (12 accompaniment, 12 bass, 13 contrabass) in circle-of-fift
 | Folder | What it is |
 |---|---|
 | `web/` | The whole instrument as a static site. Upload this folder as-is to any static https host. No server code, no CDN. |
-| `dist/ConcertZither.exe` | Self-contained Windows build (.NET 10 + WebView2), the web app embedded. |
+| `dist/ConcertZither-X.Y.Z.exe` | Self-contained Windows builds (.NET 10 + WebView2), the web app embedded. One file per version; earlier versions are kept. |
 | `shell/` | Source of the Windows shell. |
 | `tools/` | Verification and build helpers. |
 
 ## Run
 
-- **Windows:** double-click `dist/ConcertZither.exe`. (`--selftest` starts audio, plays a chord, writes
+- **Windows:** double-click the newest `dist/ConcertZither-X.Y.Z.exe`. (`--selftest` starts audio, plays a chord, writes
   `%LOCALAPPDATA%\ConcertZither\selftest.json` and exits.)
 - **Locally in a browser:** `node tools/serve.mjs` then open http://localhost:8377/ (it needs http(s), not `file://`).
 - **iPad:** host `web/` over https, open it in Safari, then Share → Add to Home Screen. After the first
@@ -26,8 +26,11 @@ and 37 open strings (12 accompaniment, 12 bass, 13 contrabass) in circle-of-fift
 node tools/verify.mjs          # tuning, stability, CPU headroom of the string engine
 node tools/check-songs.mjs     # bar lengths, fret range and chords of every song
 pwsh tools/make-icons.ps1      # regenerate icons
-dotnet publish shell/ConcertZither.csproj -c Release -o dist
+dotnet publish shell/ConcertZither.csproj -c Release -o dist   # writes dist/ConcertZither-<Version>.exe
 ```
+
+Set the version in `shell/ConcertZither.csproj` (`<Version>`) before building; the build names the exe
+with it and never removes earlier versions from `dist/`.
 
 ## Sound engine (`web/worklet/zither-processor.js`)
 
