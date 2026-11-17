@@ -38,7 +38,8 @@
     <button id="playBtn" class="icon primary" title="Play / pause (Enter)" aria-label="Play"><svg viewBox="0 0 24 24"><path id="playIcon" d="M7 4l13 8-13 8z" class="fill"/></svg></button>
     <button id="stopBtn" class="icon" title="Stop" aria-label="Stop"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" class="fill"/></svg></button>
     <button id="nextBtn" class="icon" title="Next piece" aria-label="Next piece"><svg viewBox="0 0 24 24"><path d="M17 5v14M5 5l9 7-9 7z" class="fill"/></svg></button>
-    <button id="loopBtn" class="icon toggle" title="Repeat" aria-label="Repeat" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3"/></svg></button>
+    <button id="loopBtn" class="icon toggle" title="Repeat" aria-label="Repeat" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3"/></svg><small id="loopBadge"></small></button>
+    <button id="recBtn" class="icon toggle rec" title="Record what you play" aria-label="Record" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" class="fill"/></svg></button>
   </div>
 
   <div class="progress-wrap">
@@ -85,6 +86,7 @@
 <aside id="library" class="drawer panel" role="dialog" aria-label="Song library" hidden>
   <div class="drawer-head"><h2>Song library</h2><button class="icon close" data-close="library" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <p class="drawer-note">Public-domain pieces in arrangements for this zither. The fretboard and strings follow the playing.</p>
+  <div class="drawer-actions"><button id="playAllBtn" class="chip">Play all, on repeat</button><button id="importBtn" class="chip">Add a song…</button></div>
   <div id="songList" class="song-list"></div>
 </aside>
 
@@ -186,11 +188,15 @@
     <h3 id="m-songs">Song library</h3>
     <p>Press the song button at the top left to open the library, and choose a piece to play it. While it plays, markers show the fretted notes, the plucked strings flash, and the current chord is lit on the strings and in the chord bar. You can play along at any time.</p>
     <ul>
-      <li><b>Transport:</b> previous piece, play/pause, stop, next piece, and repeat.</li>
+      <li><b>Transport:</b> previous piece, play/pause, stop, next piece, repeat and record.</li>
+      <li><b>Repeat</b> has three settings, shown by a small label on the button: off; <b>1</b>, which repeats the current piece; and <b>all</b>, which plays every piece in the library one after another and starts again after the last. <b>Play all, on repeat</b> at the top of the library does the same from the first piece. Press Stop to end it.</li>
       <li><b>Position:</b> click or tap the progress line to jump to another place.</li>
       <li><b>Tempo:</b> the slider beside the metronome icon slows a piece to 60% or speeds it up to 130%.</li>
     </ul>
     <p>All pieces are public-domain compositions in arrangements made for this instrument. Each carries a label saying how its notes were obtained: <b>From score</b> (transcribed from a public-domain edition), <b>Read from scan</b> (read by eye from a scanned score, so small misreadings are possible) or <b>From memory</b> (approximate, not checked against a score). The selected piece also shows its source.</p>
+
+    <p><b>Adding your own songs.</b> <i>Add a song…</i> at the top of the library opens a box where you can paste a tune in ABC notation, a plain-text format widely used for folk music. The melody is arranged for the fretboard, and if the tune includes chord symbols the bass and accompaniment are added. Your songs appear under <i>My Songs</i>, are kept on this device only, and can be removed from the list when selected.</p>
+    <p><b>Recording.</b> Press the round record button, play, and press it again to finish. A small bar appears with <b>Play take</b>, which replays your playing on the instrument, and <b>Save audio</b>, which saves it as a WAV sound file. If a song is playing while you record, it is recorded too. A take is kept until you record another or discard it; it is not kept after you close the app.</p>
 
     <h3 id="m-practice">Practising</h3>
     <p>The note button in the top bar opens the practice strip under it.</p>
@@ -202,6 +208,7 @@
       <li><b>I play chords</b> — the app plays the melody and leaves the open strings to you. The strings of each chord light up when it is due, and the chord bar shows its name.</li>
     </ul>
     <p><b>Wait for me</b> (with <i>I play melody</i>) makes the song stop at every melody note until you pluck it. The note is shown on the fretboard a moment early, the string glows while the song is waiting, and the strip says <i>your turn</i>. Any way of sounding the right pitch counts: the lit fret, the same note on another string, or a melody key. Wrong notes are simply ignored, so you can take as long as you need. Without <i>Wait for me</i> the song keeps its own tempo; use the tempo slider to slow it down.</p>
+    <p>With <i>I play chords</i>, <b>Wait for me</b> stops the song at the start of each bar, and at each chord change, until you pluck the bass string of the chord, which glows amber. The bass note in either of the two lower groups counts. Between those points the song runs on, and the chord strings stay lit for you to pluck in rhythm.</p>
 
     <h3 id="m-views">Views</h3>
     <ul>
@@ -233,10 +240,33 @@
       <li><b>No sound:</b> touch the instrument once more (the device may have paused audio while the app was in the background), then check Volume in Settings and the device's own volume.</li>
       <li><b>Strings ring on too long or sound muddy:</b> press Damp, or lower Sympathetic resonance.</li>
       <li><b>Open strings are hard to hit:</b> use Zoom (the Chords framing is the roomiest), or use the chord buttons with Auto-pluck off to light the strings you want.</li>
+      <li><b>Save audio does nothing:</b> rendering needs a recent browser. If it fails a message says so; Play take still works.</li>
       <li><b>Some buttons are missing:</b> on narrow screens the tempo slider, repeat and previous-piece buttons are hidden to make room. Turn the device to landscape or widen the window.</li>
     </ul>
   </div>
 </section>
+
+<section id="importer" class="sheet panel small" role="dialog" aria-label="Add a song" hidden>
+  <div class="drawer-head sticky"><h2>Add a song</h2><button class="icon close" data-close="importer" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="manual-body">
+    <p>Paste one tune in ABC notation. The melody is placed on the fretboard, and if the tune has chord symbols in quotes (such as <kbd>"G"</kbd> or <kbd>"D7"</kbd>) the bass and accompaniment are added from them. The song is kept on this device under <i>My Songs</i>.</p>
+    <textarea id="abcText" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="X:1&#10;T:My tune&#10;C:Traditional&#10;M:3/4&#10;L:1/8&#10;Q:1/4=120&#10;K:G&#10;D2 | &quot;G&quot;G2 B2 d2 | &quot;D7&quot;c2 A2 F2 | &quot;G&quot;G6 |]"></textarea>
+    <div class="import-row">
+      <label>Accompaniment <select id="abcStyle"><option value="auto">Choose for me</option><option value="waltz">Waltz (bass, chord, chord)</option><option value="polka">Polka or march (bass, chord)</option><option value="arp">Arpeggios</option><option value="hymn">Slow chords</option></select></label>
+      <label class="check"><input id="abcOctave" type="checkbox"> Play an octave higher</label>
+    </div>
+    <p id="abcMsg" class="import-msg" role="alert"></p>
+    <div class="import-row"><button id="abcAdd" class="start-btn small">Add song</button><button id="abcCancel" class="chip">Cancel</button></div>
+    <p class="fine">Understood: note names and octaves, sharps, flats and naturals, note lengths, rests, ties, triplets, dotted pairs (&gt; and &lt;), chords in [brackets], repeats with first and second endings, key and metre changes. Only the first voice of a multi-voice tune is used; lyrics, grace notes and ornaments are ignored. Please add only music you have the right to use.</p>
+  </div>
+</section>
+
+<div id="takeBar" class="panel take" hidden>
+  <span id="takeInfo"></span>
+  <button id="takePlay" class="chip">Play take</button>
+  <button id="takeSave" class="chip">Save audio</button>
+  <button id="takeClose" class="icon" aria-label="Discard take" title="Discard"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</div>
 
 <footer id="chordbar" class="panel">
   <div class="seg" id="qualitySeg" role="group" aria-label="Chord type">

@@ -42,25 +42,31 @@ export class ZitherAudio {
     };
     node.onprocessorerror = (e) => console.error('zither engine error', e);
 
-    // gentle limiter for safety, then dry + a small procedural room
-    const limiter = ctx.createDynamicsCompressor();
-    limiter.threshold.value = -7; limiter.knee.value = 6; limiter.ratio.value = 6;
-    limiter.attack.value = 0.002; limiter.release.value = 0.16;
-    this.master = ctx.createGain();
-    this.wet = ctx.createGain();
-    const conv = ctx.createConvolver();
-    conv.normalize = false;
-    conv.buffer = this._room(ctx);
-    node.connect(limiter);
-    limiter.connect(this.master);
-    limiter.connect(conv); conv.connect(this.wet); this.wet.connect(this.master);
-    this.master.connect(ctx.destination);
+    const g = this.buildGraph(ctx, node);
+    this.master = g.master; this.wet = g.wet;
     this.setVolume(this.settings.volume); this.setReverb(this.settings.reverb);
 
     ctx.onstatechange = () => { if (this.onState) this.onState(ctx.state); };
     await resume;
     this.ready = true;
     if (this.onState) this.onState(ctx.state);
+  }
+
+  /** Engine -> gentle limiter -> dry + a small procedural room -> output. Also used for offline rendering. */
+  buildGraph(ctx, node) {
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -7; limiter.knee.value = 6; limiter.ratio.value = 6;
+    limiter.attack.value = 0.002; limiter.release.value = 0.16;
+    const master = ctx.createGain(), wet = ctx.createGain(), conv = ctx.createConvolver();
+    conv.normalize = false;
+    conv.buffer = this._room(ctx);
+    node.connect(limiter);
+    limiter.connect(master);
+    limiter.connect(conv); conv.connect(wet); wet.connect(master);
+    master.connect(ctx.destination);
+    master.gain.value = this.settings.volume * this.settings.volume * 1.6;
+    wet.gain.value = this.settings.reverb * 1.4;
+    return { master, wet };
   }
 
   /** A small, warm wooden room: decaying noise with early reflections. */
@@ -88,7 +94,7 @@ export class ZitherAudio {
     return buf;
   }
 
-  _post(m) { if (this.node) this.node.port.postMessage(m); }
+  _post(m) { if (this.tap) this.tap(m); if (this.node) this.node.port.postMessage(m); }
   get now() { return this.ctx ? this.ctx.currentTime : 0; }
 
   pluck(s, vel = 0.8, fret, time) { this._post({ type: 'pluck', s, vel, fret, time }); }

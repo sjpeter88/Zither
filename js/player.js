@@ -105,11 +105,15 @@ export function parseTune(song) {
   const unit = (() => { const m = /(\d+)\/(\d+)/.exec(song.unit || '1/8'); return 4 * m[1] / m[2]; })();
   const tokens = unfold(tokenize(song.abc));
   let sig = keySignature(song.key || 'C'), barAcc = {}, t = 0, tuplet = 0, tupletMul = 1, broken = 0;
-  const groups = [], chords = [], bars = [0];
+  const groups = [], chords = [], bars = [0], meters = [{ t: 0, meter: song.meter || '3/4' }];
   let last = null;
   for (const tk of tokens) {
     if (tk.t === 'sym') { chords.push({ t, sym: tk.v }); continue; }
-    if (tk.t === 'field') { if (tk.k === 'K') sig = keySignature(tk.v); continue; }
+    if (tk.t === 'field') {
+      if (tk.k === 'K') sig = keySignature(tk.v);
+      else if (tk.k === 'M' && /^\d+\/\d+$/.test(tk.v)) meters.push({ t, meter: tk.v });       // the metre may change mid-tune
+      continue;
+    }
     if (tk.t === 'bar') { barAcc = {}; if (t > bars[bars.length - 1] + 1e-6) bars.push(t); continue; }
     if (tk.t === 'tuplet') { tuplet = tk.n; tupletMul = tk.n === 3 ? 2 / 3 : tk.n === 2 ? 3 / 2 : (tk.n - 1) / tk.n; continue; }
     if (tk.t === 'tie') { if (last) last.tie = true; continue; }
@@ -148,7 +152,7 @@ export function parseTune(song) {
     }
   }
   if (t > bars[bars.length - 1] + 1e-6) bars.push(t);
-  return { groups, chords, bars, beats: t };
+  return { groups, chords, bars, meters, beats: t };
 }
 
 export function parseChord(sym) {
@@ -171,6 +175,18 @@ const PATTERNS = {
   },
   hymn: { '3/4': [[0, 'B'], [1, 'C']], '4/4': [[0, 'B'], [2, 'C']], '6/8': [[0, 'B'], [1.5, 'C']], '2/4': [[0, 'B'], [1, 'C']] },
 };
+
+/** A plain pattern for any metre that has no pattern of its own: bass on the first beat, chords after it. */
+function genericPattern(meter) {
+  const [n, d] = meter.split('/').map(Number), out = [[0, 'B']];
+  if (d === 8 && n % 3 === 0) {                        // compound time: groups of three quavers
+    for (let g = 0; g < n / 3; g++) { if (g) out.push([g * 1.5, 'A']); out.push([g * 1.5 + 1, 'C']); }
+    return out;
+  }
+  const beats = n * 4 / d;
+  for (let k = 1; k < beats - 1e-9; k++) out.push([k, beats >= 4 && k === 2 ? 'A' : 'C']);
+  return out;
+}
 
 /** Turn a song into timed performance events (times in beats). */
 export function compileSong(song) {
@@ -204,12 +220,13 @@ export function compileSong(song) {
   }
   // --- bass and accompaniment on the open strings
   const style = PATTERNS[song.style || 'waltz'] || PATTERNS.waltz;
-  const pattern = style[song.meter] || Object.values(style)[0];
+  const meterAt = (t) => { let m = tune.meters[0].meter; for (const x of tune.meters) { if (x.t <= t + 1e-6) m = x.meter; else break; } return m; };
   const chordAt = (t) => { let c = null; for (const ch of tune.chords) { if (ch.t <= t + 1e-6) c = ch; else break; } return c; };
   let prevSym = null, prevStrings = null, lastBass = -1;
   for (let b = 0; b + 1 < tune.bars.length; b++) {
     const t0 = tune.bars[b], len = tune.bars[b + 1] - t0;
     if (b === 0 && len < barBeats - 1e-6) continue;             // pickup bar: melody alone
+    const meter = meterAt(t0), pattern = style[meter] || genericPattern(meter);
     for (const [off, role0] of pattern) {
       if (off >= len - 1e-6) continue;
       const t = t0 + off, ch = chordAt(t);
@@ -227,7 +244,7 @@ export function compileSong(song) {
       if (role === 'B' || role === 'A') {
         const s = role === 'A' && parsed.bassPc == null ? cs.altBass : cs.bass;
         if (lastBass >= 0 && lastBass !== s) ev.push({ t: t - 0.01, type: 'damp', string: lastBass });
-        ev.push({ t, type: 'open', string: s, vel: 0.6 + accent + jitter() * 0.05 });
+        ev.push({ t, type: 'open', string: s, bass: role === 'B', vel: 0.6 + accent + jitter() * 0.05 });
         if (role === 'B' && off === 0 && cs.contra >= 0) ev.push({ t, type: 'open', string: cs.contra, vel: 0.42 });
         lastBass = s;
       } else if (role === 'C') {
@@ -251,7 +268,7 @@ export class SongPlayer {
     // practice: who plays what, and whether the song waits for the player's melody notes
     this.mode = 'listen';             // 'listen' | 'melody' (you play the melody) | 'chords' (you play the chords)
     this.wait = false; this.gate = null; this.gateDone = -1; this.waiting = false;
-    this.next = 0; this.timer = null; this.visuals = new Set();
+    this.next = 0; this.timer = null; this.visuals = new Set(); this.runId = 0;
     this.onProgress = null; this.onEnd = null; this.onChord = null; this.onState = null;
   }
 
@@ -318,7 +335,7 @@ export class SongPlayer {
     const ev = this.compiled.events, beat = this.pos / this.spb;
     let i = 0; while (i < ev.length && ev[i].t < beat - 1e-6) i++;
     this.next = i; this.minTime = from || 0;
-    this.gate = null; this.gateDone = i - 1; this.waiting = false;
+    this.gate = null; this.gateDone = i - 1; this.waiting = false; this.runId++;
   }
 
   _clear(keepFingers) {
@@ -340,12 +357,14 @@ export class SongPlayer {
     return (this.playing ? Math.max(0, (this.audio.now - this.anchor) * this.scale) : this.pos) / this.spb;
   }
 
-  /** The player plucked a note (MIDI pitch). In wait mode the right note moves the song on. */
-  userPluck(midi) {
+  /** The player plucked a note. In wait mode the right note moves the song on:
+   *  the melody note that is due, or (when you play the chords) the bass note of the bar. */
+  userPluck(midi, string = -1) {
     const g = this.gate;
     if (!g || !this.playing) return false;
     const now = this.audio.now, tg = this.anchor + g.t * this.spb / this.scale;
-    if (midi !== g.midi || now < tg - 0.45) return false;
+    const right = g.bass ? string >= 17 && ((midi - g.midi) % 12 + 12) % 12 === 0 : midi === g.midi;
+    if (!right || now < tg - 0.45) return false;
     if (now > tg) this.anchor = now - g.t * this.spb / this.scale;
     this.gateDone = g.i; this.gate = null; this.waiting = false;
     this._tick();
@@ -358,15 +377,16 @@ export class SongPlayer {
     const sec = (beats) => this.anchor + beats * this.spb / this.scale;
     const userMelody = this.mode === 'melody', userChords = this.mode === 'chords';
     let limit = Infinity;
-    if (userMelody && this.wait) {
-      // the gate is the next melody note the player has to pluck; nothing at or after it is played until then
+    if ((userMelody || userChords) && this.wait) {
+      // the gate is the next note the player has to pluck; nothing at or after it is played until then
       if (!this.gate) {
+        const isGate = userMelody ? (e) => e.type === 'mel' && e.top : (e) => e.type === 'open' && e.bass;
         let i = Math.max(this.next, this.gateDone + 1);
-        while (i < ev.length && !(ev[i].type === 'mel' && ev[i].top)) i++;
+        while (i < ev.length && !isGate(ev[i])) i++;
         if (i < ev.length) {
           const e = ev[i];
-          this.gate = { i, t: e.t, e, midi: STRINGS[e.string].midi + e.fret };
-          this._later(Math.max(now, sec(e.t) - 1.2), () => sc.setFinger(e.string, e.fret, 'song'));     // show it a little ahead
+          this.gate = { i, t: e.t, e, bass: userChords, midi: STRINGS[e.string].midi + (e.fret || 0) };
+          if (userMelody) this._later(Math.max(now, sec(e.t) - 1.2), () => sc.setFinger(e.string, e.fret, 'song'));     // show it a little ahead
         }
       }
       const g = this.gate;
@@ -375,12 +395,22 @@ export class SongPlayer {
         const tg = sec(g.t);
         if (now >= tg) {                         // the note is due: hold the song here
           this.anchor += now - tg; this.waiting = true;
-          sc.setFinger(g.e.string, g.e.fret, 'song'); sc.flash(g.e.string, 0.45);
+          if (userMelody) sc.setFinger(g.e.string, g.e.fret, 'song');
+          sc.flash(g.e.string, 0.5);
+          // light the chord that belongs to this moment, so the strings to pluck are shown while the song waits
+          for (let j = this.next; j < ev.length && ev[j].t <= g.t + 1e-9; j++) {
+            const c = ev[j];
+            if (c.type !== 'chord' || c.shown === this.runId) continue;
+            c.shown = this.runId;
+            sc.setHints([...c.strings.acc.map((x) => [x, 0]), [c.strings.bass, 1]]);
+            if (this.onChord) this.onChord(c.chord);
+          }
         }
       }
     } else { this.gate = null; this.waiting = false; }
 
-    while (this.next < ev.length && ev[this.next].t < limit - 1e-9 && sec(ev[this.next].t) < horizon) {
+    while (this.next < ev.length && sec(ev[this.next].t) < horizon) {
+      if (ev[this.next].t >= limit - 1e-9) break;          // nothing at or after the gate until it is passed
       const e = ev[this.next++];
       let time = Math.max(sec(e.t), now + 0.005);
       if (e.type === 'mel') {
@@ -391,7 +421,7 @@ export class SongPlayer {
           if (e.damp) a.damp(e.string, Math.max(time + 0.05, end + 0.03));
         }
         this._later(time, () => { sc.setFinger(e.string, e.fret, 'song'); sc.flash(e.string, 0.9); });
-        this._later(end - 0.02, () => { if (sc.markers[e.string].song.fret === e.fret && !(this.gate && this.gate.e.string === e.string)) sc.setFinger(e.string, 0, 'song'); });
+        this._later(end - 0.02, () => { if (sc.markers[e.string].song.fret === e.fret && !(this.gate && !this.gate.bass && this.gate.e.string === e.string)) sc.setFinger(e.string, 0, 'song'); });
       } else if (e.type === 'open') {
         time += (e.roll || 0) * 0.013;                    // roll chords slightly, low string first
         if (!userChords) a.pluck(e.string, e.vel, undefined, time);
@@ -399,6 +429,8 @@ export class SongPlayer {
       } else if (e.type === 'damp') {
         if (!userChords) a.damp(e.string, time);
       } else if (e.type === 'chord') {
+        if (e.shown === this.runId) continue;             // already lit while waiting at the gate
+        e.shown = this.runId;
         this._later(time, () => {
           sc.setHints([...e.strings.acc.map((s) => [s, 0]), [e.strings.bass, 1]]);
           if (this.onChord) this.onChord(e.chord);
@@ -415,4 +447,49 @@ export class SongPlayer {
       else { if (this.onState) this.onState(); if (this.onEnd) this.onEnd(); }
     }
   }
+}
+
+/** Build a song from pasted ABC notation (one tune, one voice). Throws if nothing playable is found. */
+export function songFromAbc(text, opts = {}) {
+  const hdr = {}, body = [];
+  let inBody = false, voices = 0, skip = false;
+  for (const raw of String(text).replace(/\r/g, '').split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('%')) continue;
+    const m = /^([A-Za-z]):\s*(.*)$/.exec(line);
+    if (m && !/^[A-Za-z]:[|:\]]/.test(line)) {
+      const k = m[1], v = m[2].replace(/%.*$/, '').trim();
+      if (k === 'V') { voices++; skip = voices > 1; continue; }
+      if (k === 'X' && inBody) break;                              // a second tune: stop
+      if (!inBody) { if (!(k in hdr)) hdr[k] = v; if (k === 'K') inBody = true; }
+      else if (k === 'K' || k === 'M') body.push('[' + k + ':' + v + ']');
+      continue;
+    }
+    if (!skip) body.push(raw);
+  }
+  if (!('K' in hdr)) throw new Error('This does not look like ABC notation: there is no K: (key) line. A tune starts with lines such as T:, M:, L: and K:, followed by the notes.');
+  let meter = (hdr.M || '4/4').trim();
+  if (meter === 'C') meter = '4/4'; else if (meter === 'C|') meter = '2/2';
+  if (!/^\d+\/\d+$/.test(meter)) meter = '4/4';
+  const [mn, md] = meter.split('/').map(Number);
+  const unit = /^\d+\/\d+$/.test(hdr.L || '') ? hdr.L : (mn / md < 0.75 ? '1/16' : '1/8');
+  let tempo = { '3/4': 132, '6/8': 80 }[meter] || 108;
+  const q = /(\d+)\/(\d+)\s*=\s*(\d+)/.exec(hdr.Q || '') || null, qn = /^\s*(\d+)\s*$/.exec(hdr.Q || '');
+  if (q) tempo = Math.round(q[3] * (q[1] / q[2]) * 4); else if (qn) tempo = +qn[1];
+  tempo = Math.max(30, Math.min(300, tempo));
+  const auto = meter === '3/4' ? 'waltz' : md === 8 && mn % 3 === 0 ? 'arp' : mn === 3 ? 'waltz' : 'polka';
+  const song = {
+    id: 'user-' + Date.now().toString(36), category: 'My Songs', user: true,
+    title: (hdr.T || 'Untitled').slice(0, 80), composer: (hdr.C || 'Imported').slice(0, 80), year: null,
+    key: (hdr.K || 'C').split(/\s+/).slice(0, 2).join('').replace(/(major|minor)$/i, (x) => x.slice(0, 3)), meter, unit, tempo,
+    style: opts.style && opts.style !== 'auto' ? opts.style : auto, transpose: opts.octaveUp ? 12 : 0,
+    accuracy: 'user', source: 'Imported from ABC notation' + (voices > 1 ? ' (first voice only).' : '.'), abc: body.join('\n'),
+  };
+  const tune = parseTune(song), comp = compileSong(song);
+  const wanted = tune.groups.reduce((n, g) => n + g.pitches.length, 0), placed = comp.events.filter((e) => e.type === 'mel').length;
+  if (!placed) throw new Error('No playable notes were found. Paste the tune in ABC notation, including its K: (key) line.');
+  const barBeats = mn * 4 / md;
+  let odd = 0;
+  for (let i = 1; i + 2 < tune.bars.length; i++) if (tune.meters.length === 1 && Math.abs(tune.bars[i + 1] - tune.bars[i] - barBeats) > 1e-6) odd++;
+  return { song, info: { notes: placed, unplaced: wanted - placed, bars: comp.bars, oddBars: odd, chords: tune.chords.length, seconds: Math.round(comp.beats * 60 / tempo) } };
 }

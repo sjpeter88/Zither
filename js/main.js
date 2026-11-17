@@ -3,7 +3,8 @@ import { STRINGS, MELODY_COUNT, N_STRINGS, GROUP_START, CHORD_ROOTS, PC_NAMES, c
 import { ZitherScene } from './scene.js';
 import { ZitherAudio } from './audio.js';
 import { ZitherInput, startTremolo } from './input.js';
-import { SongPlayer } from './player.js';
+import { SongPlayer, songFromAbc } from './player.js';
+import { Recorder } from './recorder.js';
 import { SONGS, ACCURACY } from './songs.js';
 import { TabStrip } from './tab.js';
 
@@ -17,7 +18,7 @@ const settings = Object.assign({
   mirror: false, labels: true, tapSounds: true, autoPluck: true, volume: 0.8, reverb: 0.22, resonance: 0.5,
   quality: 'maj', pattern: 'oompah', view: 'play', tempo: 100, song: null,
   focus: 'all', latch: false, chordBpm: 108, vibrato: true,
-  practice: false, mode: 'listen', wait: false,
+  practice: false, mode: 'listen', wait: false, repeat: 'off',
 }, (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch (e) { /* private mode */ } };
 
@@ -35,7 +36,13 @@ const input = new ZitherInput(canvas, scene, audio, settings);
 const player = new SongPlayer(audio, scene);
 audio.onLevels = (lv) => scene.setLevels(lv);
 const tab = new TabStrip($('tab'), player);
-input.onPluck = (string, fret) => player.userPluck(STRINGS[string].midi + fret);
+input.onPluck = (string, fret) => player.userPluck(STRINGS[string].midi + fret, string);
+const recorder = new Recorder(audio, scene);
+
+// songs added by the player are kept on this device
+const USER_KEY = 'concertzither.songs.v1';
+try { for (const s of JSON.parse(localStorage.getItem(USER_KEY)) || []) if (s && s.abc) SONGS.push(s); } catch (e) { /* none */ }
+const saveUserSongs = () => { try { localStorage.setItem(USER_KEY, JSON.stringify(SONGS.filter((s) => s.user))); } catch (e) { /* full or private */ } };
 player.mode = settings.mode; player.wait = settings.wait;
 
 scene.setMirror(settings.mirror);
@@ -45,6 +52,9 @@ scene.setFocus(settings.focus, true);
 player.vibrato = settings.vibrato;
 
 function layout() {
+  const root = document.documentElement.style;
+  root.setProperty('--bar-bottom', Math.round($('topbar').getBoundingClientRect().bottom) + 'px');
+  root.setProperty('--chord-h', Math.round(window.innerHeight - $('chordbar').getBoundingClientRect().top) + 'px');
   const top = ($('practice').hidden ? $('topbar') : $('practice')).getBoundingClientRect(), bottom = $('chordbar').getBoundingClientRect();
   scene.setInsets(top.bottom + 6, window.innerHeight - bottom.top + 6);
   tab.resize();
@@ -216,6 +226,7 @@ const MELODY_KEYS = { a: 60, s: 62, d: 64, f: 65, g: 67, h: 69, j: 71, k: 72, l:
 const heldKeys = new Map();
 window.addEventListener('keydown', async (e) => {
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
   if (e.target instanceof HTMLInputElement && e.target.type !== 'range' && e.target.type !== 'checkbox') return;
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   const ci = KEYS.indexOf(k.toUpperCase());
@@ -223,8 +234,8 @@ window.addEventListener('keydown', async (e) => {
   if (k === 'F2') { e.preventDefault(); cycleZoom(); return; }
   if (k === '1' || k === '2' || k === '3') { settings.quality = ['maj', 'min', 'dom7'][+k - 1]; save(); syncQuality(); if (currentRoot != null) showChord(currentRoot, settings.quality); return; }
   if (k === 'F1') { e.preventDefault(); togglePanel('manual'); return; }
-  if (k === 'Escape' && !$('manual').hidden) { closePanels(); return; }
-  if (!$('manual').hidden && k !== 'Enter') return;      // do not play notes while reading
+  if (k === 'Escape' && (!$('manual').hidden || !$('importer').hidden)) { closePanels(); return; }
+  if ((!$('manual').hidden || !$('importer').hidden) && k !== 'Enter') return;      // do not play notes while reading
   if (k === 'Enter') { e.preventDefault(); togglePlay(); return; }
   if (k === 'Escape') { closePanels(); if (audio.ready) dampAll(); return; }
   if (k === 'm') { setMirror(!settings.mirror); return; }
@@ -261,21 +272,35 @@ window.addEventListener('keyup', (e) => {
 const listEl = $('songList');
 let songIndex = -1;
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-(() => {
+function renderList() {
+  listEl.textContent = '';
   let cat = null;
   SONGS.forEach((song, i) => {
     if (song.category !== cat) { cat = song.category; const h = document.createElement('h3'); h.textContent = cat; listEl.appendChild(h); }
     const b = document.createElement('button');
-    b.className = 'song'; b.dataset.i = i;
-    const acc = ACCURACY[song.accuracy];
+    b.className = 'song' + (i === songIndex ? ' current' : ''); b.dataset.i = i;
+    const acc = ACCURACY[song.accuracy] || ACCURACY.user;
     b.innerHTML = `<b></b><span class="badge ${song.accuracy}" title="${acc.note}">${acc.label}</span><i></i><span class="src"></span>`;
     b.querySelector('b').textContent = song.title;
     b.querySelector('i').textContent = `${song.composer}${song.year ? ' · ' + song.year : ''} · ${song.key} · ${song.meter}`;
     b.querySelector('.src').textContent = song.source;
+    if (song.user) {
+      const del = document.createElement('span');
+      del.className = 'del'; del.textContent = 'Remove'; del.setAttribute('role', 'button');
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const cur = SONGS[songIndex];
+        SONGS.splice(SONGS.indexOf(song), 1); saveUserSongs();
+        if (cur === song) { player.stop(); songIndex = -1; loadSong(0); } else songIndex = SONGS.indexOf(cur);
+        renderList();
+      });
+      b.querySelector('.src').appendChild(del);
+    }
     b.addEventListener('click', () => { loadSong(i); player.play().then(syncTransport); });
     listEl.appendChild(b);
   });
-})();
+}
+renderList();
 
 function loadSong(i) {
   songIndex = (i + SONGS.length) % SONGS.length;
@@ -290,7 +315,7 @@ function loadSong(i) {
 }
 function syncSongSub() {
   const song = SONGS[songIndex]; if (!song) return;
-  const mode = { listen: '', melody: settings.wait ? ' · waits for your melody' : ' · you play the melody', chords: ' · you play the chords' }[settings.mode];
+  const mode = { listen: '', melody: settings.wait ? ' · waits for your melody' : ' · you play the melody', chords: settings.wait ? ' · waits for your bass notes' : ' · you play the chords' }[settings.mode];
   $('songSub').textContent = `${song.composer} · ${ACCURACY[song.accuracy].label.toLowerCase()}${mode}`;
 }
 function syncTransport() {
@@ -308,12 +333,36 @@ player.onProgress = (p, d) => {
   $('timeNow').textContent = fmt(p / (settings.tempo / 100)); $('timeEnd').textContent = fmt(d / (settings.tempo / 100));
 };
 player.onChord = (ch) => { markRoot(ch ? ch.rootPc : null); currentRoot = ch ? ch.rootPc : currentRoot; };
-player.onEnd = () => { syncTransport(); };
+// at the end of a piece: stop, or (repeat "all") go on to the next one, round and round
+let nextTimer;
+player.onEnd = () => {
+  syncTransport();
+  if (settings.repeat !== 'all') return;
+  nextTimer = setTimeout(() => { loadSong(songIndex + 1); player.play().then(syncTransport); }, 700);
+};
+const REPEATS = ['off', 'one', 'all'];
+function syncRepeat() {
+  player.loop = settings.repeat === 'one';
+  const b = $('loopBtn');
+  b.setAttribute('aria-pressed', String(settings.repeat !== 'off'));
+  b.title = { off: 'Repeat is off', one: 'Repeating this piece', all: 'Playing all pieces in turn, then starting again' }[settings.repeat];
+  $('loopBadge').textContent = { off: '', one: '1', all: 'all' }[settings.repeat];
+}
+function playAll() {
+  settings.repeat = 'all'; save(); syncRepeat(); closePanels();
+  loadSong(0); startAudio().then((ok) => ok && player.play().then(syncTransport));
+  toast('Playing every piece in turn. It starts again after the last one; press Stop to end.', 3600);
+}
+$('playAllBtn').addEventListener('click', playAll);
 $('playBtn').addEventListener('click', togglePlay);
-$('stopBtn').addEventListener('click', () => { player.stop(); markRoot(null); syncTransport(); });
+$('stopBtn').addEventListener('click', () => { clearTimeout(nextTimer); recorder.stopPlayback(); player.stop(); markRoot(null); syncTransport(); });
 $('prevBtn').addEventListener('click', () => { const was = player.playing; loadSong(songIndex - 1); if (was) player.play().then(syncTransport); });
 $('nextBtn').addEventListener('click', () => { const was = player.playing; loadSong(songIndex + 1); if (was) player.play().then(syncTransport); });
-$('loopBtn').addEventListener('click', () => { player.loop = !player.loop; $('loopBtn').setAttribute('aria-pressed', String(player.loop)); });
+$('loopBtn').addEventListener('click', () => {
+  settings.repeat = REPEATS[(REPEATS.indexOf(settings.repeat) + 1) % REPEATS.length]; save(); syncRepeat();
+  toast({ off: 'Repeat off.', one: 'Repeat this piece.', all: 'Play all pieces in turn, then start again.' }[settings.repeat]);
+});
+syncRepeat();
 $('progress').addEventListener('pointerdown', (e) => {
   if (songIndex < 0) return;
   const r = $('progress').getBoundingClientRect();
@@ -329,9 +378,9 @@ function syncPractice() {
   $('practice').hidden = !settings.practice;
   $('practiceBtn').setAttribute('aria-pressed', String(settings.practice));
   for (const b of $('modeSeg').children) b.classList.toggle('active', b.dataset.m === settings.mode);
-  $('waitBtn').setAttribute('aria-pressed', String(settings.wait && settings.mode === 'melody'));
-  $('waitBtn').disabled = settings.mode !== 'melody';
-  player.mode = settings.mode; player.wait = settings.wait && settings.mode === 'melody';
+  $('waitBtn').setAttribute('aria-pressed', String(settings.wait && settings.mode !== 'listen'));
+  $('waitBtn').disabled = settings.mode === 'listen';
+  player.mode = settings.mode; player.wait = settings.wait && settings.mode !== 'listen';
   syncSongSub();
   layout();
 }
@@ -343,10 +392,69 @@ $('modeSeg').addEventListener('click', (e) => {
 });
 $('waitBtn').addEventListener('click', () => {
   settings.wait = !settings.wait; save(); syncPractice();
-  toast(settings.wait ? 'Wait for me: the song stops at each melody note until you pluck it.' : 'The song keeps its own tempo.');
+  toast(!settings.wait ? 'The song keeps its own tempo.' : settings.mode === 'chords' ? 'Wait for me: the song stops at each bar until you pluck its lit bass string.' : 'Wait for me: the song stops at each melody note until you pluck it.');
 });
 
-function closePanels() { $('library').hidden = true; $('settings').hidden = true; $('manual').hidden = true; }
+function closePanels() { $('library').hidden = true; $('settings').hidden = true; $('manual').hidden = true; $('importer').hidden = true; }
+
+// ---- recording a take
+const fmtTake = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+let recTick;
+recorder.onChange = () => {
+  $('recBtn').setAttribute('aria-pressed', String(recorder.recording));
+  $('recBtn').title = recorder.recording ? 'Stop recording' : 'Record what you play';
+  clearInterval(recTick);
+  if (recorder.recording) {
+    $('takeBar').hidden = false; $('takePlay').hidden = true; $('takeSave').hidden = true;
+    const show = () => { $('takeInfo').textContent = 'Recording ' + fmtTake(audio.now - recorder.t0); };
+    show(); recTick = setInterval(show, 500);
+  } else if (recorder.hasTake) {
+    $('takeBar').hidden = false; $('takePlay').hidden = false; $('takeSave').hidden = false;
+    $('takeInfo').textContent = 'Your take · ' + fmtTake(recorder.duration);
+    $('takePlay').textContent = recorder.playing ? 'Stop' : 'Play take';
+  } else $('takeBar').hidden = true;
+};
+$('recBtn').addEventListener('click', async () => {
+  if (recorder.recording) { recorder.stop(); if (!recorder.hasTake) toast('Nothing was played, so there is no take.'); return; }
+  if (!(await startAudio())) return;
+  recorder.start(); toast('Recording. Play, then press the record button again to finish.');
+});
+$('takePlay').addEventListener('click', () => { if (recorder.playing) recorder.stopPlayback(); else { if (player.playing) { player.pause(); syncTransport(); } recorder.play(); } });
+$('takeClose').addEventListener('click', () => { recorder.stopPlayback(); if (recorder.recording) recorder.stop(); recorder.events = []; recorder.onChange(); });
+$('takeSave').addEventListener('click', async () => {
+  const btn = $('takeSave'); btn.disabled = true; btn.textContent = 'Rendering…';
+  try {
+    const { blob } = await recorder.renderWav();
+    const name = 'zither-take-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.wav';
+    const file = typeof File === 'function' ? new File([blob], name, { type: 'audio/wav' }) : null;
+    if (file && navigator.canShare && navigator.canShare({ files: [file] }) && /iPad|iPhone|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) {
+      await navigator.share({ files: [file], title: 'Zither take' });          // iPad: the share sheet (Save to Files, AirDrop…)
+    } else {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+      toast('Saved ' + name);
+    }
+  } catch (e) { if (e && e.name !== 'AbortError') { console.error(e); toast('Could not save the audio: ' + (e.message || e), 4000); } }
+  btn.disabled = false; btn.textContent = 'Save audio';
+});
+window.__recorder = recorder;
+
+// ---- adding a song from ABC notation
+$('importBtn').addEventListener('click', () => { closePanels(); $('importer').hidden = false; $('abcMsg').textContent = ''; setTimeout(() => $('abcText').focus(), 50); });
+$('abcAdd').addEventListener('click', () => {
+  const msg = $('abcMsg');
+  try {
+    const { song, info } = songFromAbc($('abcText').value, { style: $('abcStyle').value, octaveUp: $('abcOctave').checked });
+    SONGS.push(song); saveUserSongs(); renderList();
+    const notes = [`Added “${song.title}”: ${info.notes} notes, ${info.bars} bars, about ${info.seconds} s.`];
+    if (!info.chords) notes.push('It has no chord symbols, so it will play without accompaniment.');
+    if (info.unplaced) notes.push(`${info.unplaced} notes are outside the range of the fretboard and were left out.`);
+    if (info.oddBars) notes.push(`${info.oddBars} bars do not match the ${song.meter} metre; check the note lengths if it sounds uneven.`);
+    $('abcText').value = ''; closePanels();
+    loadSong(SONGS.indexOf(song)); toast(notes.join(' '), 6000);
+  } catch (e) { msg.textContent = e.message || String(e); }
+});
+$('abcCancel').addEventListener('click', closePanels);
 function togglePanel(id) { const el = $(id), open = el.hidden; closePanels(); el.hidden = !open; }
 $('songBtn').addEventListener('click', () => togglePanel('library'));
 $('settingsBtn').addEventListener('click', () => togglePanel('settings'));

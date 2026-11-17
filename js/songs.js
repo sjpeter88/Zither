@@ -181,9 +181,19 @@ C E G | c2 [gc'] | [gc']2 [eg] | [eg]2 C | "C7"C E G | "F"c2 [ac'] | [ac']2 [fa]
     abc: `D/D/ | "G"G G B/G/ | "D7"d2 d | c A d/c/ | "G"B G D/D/ | "G"G G B/G/ | "D7"d2 d | c A d/c/ | "G"B G B |
 "C"c c e/c/ | "G"B B d/B/ | "D7"A A c/A/ | "G"G2 B | "C"e2 c/e/ | "G"d2 B/d/ | "D7"c A d/c/ | "G"B G z |]`,
   },
+  {
+    id: 'ros', category: 'German Songs',
+    title: "Es ist ein Ros' entsprungen",
+    composer: 'Traditional (16th century; set by Michael Praetorius, 1609)', year: 1609, key: 'F', meter: '4/4', unit: '1/4', tempo: 84, style: 'hymn', transpose: 12,
+    accuracy: 'score',
+    source: 'Soprano line from the Mutopia Project edition of Praetorius\'s 1609 setting (public domain); chords are mine.',
+    abc: `c2 | "F"c c "Bb"d c | "F"c2 "Dm"A2 | "Bb"B2 "F"A G- | G "C7"F2 E | "F"F2 c2 | "F"c c "Bb"d c | "F"c2 "Dm"A2 | "Bb"B2 "F"A G- | G "C7"F2 E |
+"F"F2 z A | "C"G E "Dm"F D | "C"C2 z c | "F"c c "Bb"d c | "F"c2 "Dm"A2 | "Bb"B2 "F"A G- | G "C7"F2 E | "F"F4 |]`,
+  },
 ];
 
 export const ACCURACY = {
+  user: { label: 'Imported', note: 'Added by you from ABC notation.' },
   score: { label: 'From score', note: 'Transcribed from a public-domain edition.' },
   eye: { label: 'Read from scan', note: 'Read by eye from a scanned score; small misreadings are possible.' },
   memory: { label: 'From memory', note: 'Approximate: written from memory, not checked against a score.' },

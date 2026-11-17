@@ -93,6 +93,7 @@
       this.hpL = 0; this.hpR = 0;
 
       this.setResonance(cfg.resonance == null ? 0.5 : cfg.resonance);
+      if (cfg.events) for (const m of cfg.events) this.handle(m);
     }
 
     // ---- parameters ----------------------------------------------------------
