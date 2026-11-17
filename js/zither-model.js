@@ -6,7 +6,7 @@
 // + 13 contrabass. Open strings are in circle-of-fifths order.
 
 export const FRETS = 29;
-export const A4 = 440;
+export let A4 = 440;
 
 export const PC_NAMES = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'B♭', 'B'];
 
@@ -15,6 +15,22 @@ export function midiName(m) { return PC_NAMES[((m % 12) + 12) % 12] + (Math.floo
 
 // --- tuning (MIDI note numbers), nearest the player first -------------------
 const MELODY = [69, 69, 62, 55, 48];                                   // a' a' d' g c
+
+// Fretboard tunings. The open strings stay in Munich tuning in both, as many players do
+// (full Viennese open-string tuning breaks the circle-of-fifths layout the chords rely on).
+export const TUNINGS = {
+  munich: { label: 'Munich — a′ a′ d′ g c', melody: [69, 69, 62, 55, 48] },
+  vienna: { label: 'Viennese fretboard — a′ d′ g′ g c', melody: [69, 62, 67, 55, 48] },
+};
+export let tuningName = 'munich';
+
+// Sound presets for the strings and soundbox.
+export const VOICES = {
+  concert: { name: 'concert', label: 'Concert — spruce top, steel strings', bright: 1, sustain: 1, fscale: 1, tilt: 0 },
+  mellow: { name: 'mellow', label: 'Mellow — rosewood body, softer strings', bright: 0.68, sustain: 0.92, fscale: 0.86, tilt: -0.28 },
+  brilliant: { name: 'brilliant', label: 'Brilliant — new strings, bright attack', bright: 1.45, sustain: 1.05, fscale: 1.07, tilt: 0.14 },
+  resonant: { name: 'resonant', label: 'Resonant — long ringing sustain', bright: 0.92, sustain: 1.5, fscale: 0.94, tilt: -0.08 },
+};
 const ACCOMP = [63, 58, 65, 60, 55, 62, 57, 64, 59, 54, 61, 56];       // Eb4 Bb3 F4 C4 G3 D4 A3 E4 B3 F#3 C#4 G#3
 const BASS = ACCOMP.map((m) => m - 12);                                // Eb3 ... G#2
 const CONTRA = [41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29];   // F2 chromatically down to F1
@@ -95,6 +111,24 @@ export const STRINGS = build();
 export const N_STRINGS = STRINGS.length;
 export const MELODY_COUNT = MELODY.length;
 export const GROUP_START = { melody: 0, acc: 5, bass: 17, contra: 29 };
+
+/** Change the fretboard tuning and the concert pitch (A4 in Hz). Returns every string's new frequency. */
+export function setTuning(name, pitch = A4) {
+  const t = TUNINGS[name] || TUNINGS.munich;
+  tuningName = TUNINGS[name] ? name : 'munich';
+  A4 = Math.max(415, Math.min(466, +pitch || 440));
+  t.melody.forEach((m, i) => { STRINGS[i].midi = m; STRINGS[i].name = PC_NAMES[m % 12]; });
+  for (const s of STRINGS) s.freq = midiToFreq(s.midi);
+  return STRINGS.map((s) => s.freq);
+}
+
+/** Helmholtz-style name of a melody string: c, d′, a″ … */
+export function stringLabel(i) {
+  const m = STRINGS[i].midi, oct = Math.floor(m / 12) - 1;
+  const n = PC_NAMES[m % 12];
+  if (oct <= 2) return n;
+  return n.toLowerCase() + ['', '′', '″', '‴'][Math.min(3, oct - 3)];
+}
 
 /** Configuration handed to the audio engine. */
 export function engineConfig() {

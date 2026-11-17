@@ -95,6 +95,12 @@
   <label class="row"><span>Volume</span><input id="volume" type="range" min="0" max="100"></label>
   <label class="row"><span>Room</span><input id="reverb" type="range" min="0" max="100"></label>
   <label class="row"><span>Sympathetic resonance</span><input id="resonance" type="range" min="0" max="100"></label>
+  <label class="row"><span>Sound</span><select id="voiceSel"></select></label>
+  <label class="row"><span>Fretboard tuning</span><select id="tuningSel"></select></label>
+  <label class="row"><span>Concert pitch: A = <output id="pitchOut"></output> Hz</span><input id="pitch" type="range" min="430" max="446" step="1"></label>
+  <label class="row"><span>Finish</span><select id="finishSel"></select></label>
+  <label class="row switch"><span>Show hands during playback</span><input id="hands" type="checkbox"><i></i></label>
+  <div class="row midi-row"><span>MIDI keyboard<small id="midiStatus"></small></span><button id="midiBtn" class="chip">Connect</button></div>
   <label class="row"><span>Chord pattern tempo <output id="chordBpmOut"></output> bpm</span><input id="chordBpm" type="range" min="60" max="180"></label>
   <label class="row switch"><span>Vibrato on long notes (songs and keyboard)</span><input id="vibrato" type="checkbox"><i></i></label>
   <label class="row"><span>Vibrato depth</span><input id="vibDepth" type="range" min="0" max="200"></label>
@@ -117,7 +123,7 @@
   <div class="drawer-head sticky"><h2>User's Manual</h2><button class="icon close" data-close="manual" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="manual-body">
     <nav class="toc" aria-label="Contents">
-      <a href="#m-start">Getting started</a><a href="#m-instrument">The instrument</a><a href="#m-touch">Playing by touch</a><a href="#m-mouse">Playing with a mouse</a><a href="#m-chords">Chords</a><a href="#m-keys">Keyboard</a><a href="#m-songs">Song library</a><a href="#m-practice">Practising</a><a href="#m-views">Views</a><a href="#m-settings">Settings</a><a href="#m-install">iPad and Windows</a><a href="#m-trouble">If something is wrong</a>
+      <a href="#m-start">Getting started</a><a href="#m-instrument">The instrument</a><a href="#m-touch">Playing by touch</a><a href="#m-mouse">Playing with a mouse</a><a href="#m-chords">Chords</a><a href="#m-keys">Keyboard</a><a href="#m-songs">Song library</a><a href="#m-practice">Practising</a><a href="#m-views">Views</a><a href="#m-settings">Settings</a><a href="#m-sound">Sound, tuning and looks</a><a href="#m-midi">MIDI keyboard</a><a href="#m-install">iPad and Windows</a><a href="#m-trouble">If something is wrong</a>
     </nav>
 
     <h3 id="m-start">Getting started</h3>
@@ -212,7 +218,7 @@
       <li><b>I play chords</b> — the app plays the melody and leaves the open strings to you. The strings of each chord light up when it is due, and the chord bar shows its name.</li>
     </ul>
     <p><b>Wait for me</b> (with <i>I play melody</i>) makes the song stop at every melody note until you pluck it. The note is shown on the fretboard a moment early, the string glows while the song is waiting, and the strip says <i>your turn</i>. Any way of sounding the right pitch counts: the lit fret, the same note on another string, or a melody key. Wrong notes are simply ignored, so you can take as long as you need. Without <i>Wait for me</i> the song keeps its own tempo; use the tempo slider to slow it down.</p>
-    <p>With <i>I play chords</i>, <b>Wait for me</b> stops the song at the start of each bar, and at each chord change, until you pluck the bass string of the chord, which glows amber. The bass note in either of the two lower groups counts. Between those points the song runs on, and the chord strings stay lit for you to pluck in rhythm.</p>
+    <p>With <i>I play chords</i>, <b>Wait for me</b> stops the song at the start of each bar, and at each chord change, until you pluck the bass string of the chord, which glows amber. The bass note in either of the two lower groups counts, and so does pressing the chord's button in the chord bar (in any pattern that starts with the bass). Between those points the song runs on, and the chord strings stay lit for you to pluck in rhythm.</p>
     <p><b>Score.</b> With <i>Wait for me</i> on, the right-hand end of the strip counts the notes you have played out of the notes in the piece, the wrong notes, and how long the song waited for you on average. A summary appears when the piece ends. Start the piece again to reset it.</p>
     <p><b>Zoom while practising.</b> If you have zoomed in, the view follows what you need to play next: the fretboard for melody notes, the chord strings for bass notes.</p>
 
@@ -238,6 +244,26 @@
       <li><b>Note names under the strings</b> — shows or hides the printed note names.</li>
       <li><b>Touching a fret sounds the note</b> — see <i>Playing by touch</i>.</li>
     </ul>
+
+    <h3 id="m-sound">Sound, tuning and looks</h3>
+    <p>These are in Settings and are remembered on each device.</p>
+    <ul>
+      <li><b>Sound</b> — four voicings of strings and soundbox: <i>Concert</i> (spruce top, steel strings; the default), <i>Mellow</i> (a darker rosewood body and softer strings), <i>Brilliant</i> (new strings with a bright attack) and <i>Resonant</i> (a long, ringing sustain).</li>
+      <li><b>Fretboard tuning</b> — <i>Munich</i> (a′ a′ d′ g c, the default) or <i>Viennese</i> (a′ d′ g′ g c). The open strings stay in Munich tuning either way, as many players do, so the chord layout is unchanged. Songs are re-arranged for the new fretboard automatically.</li>
+      <li><b>Concert pitch</b> — the frequency of the A above middle C, from 430 to 446 Hz (440 is standard; many Alpine ensembles tune to 442 or 443). Every string follows, including strings that are ringing.</li>
+      <li><b>Finish</b> — the wood of the soundbox: amber sunburst spruce, natural spruce with maple sides, walnut, or black lacquer with gold purfling. This changes only the look.</li>
+      <li><b>Show hands during playback</b> — when a song or a recording plays, a thumb with its metal ring plucks the melody strings, three fingertips pluck the open strings, and fingertips press the frets. They fade away when the music stops and never appear while you play yourself.</li>
+    </ul>
+
+    <h3 id="m-midi">MIDI keyboard</h3>
+    <p>On a computer, in Chrome, Edge or the Windows app, you can play the zither from a MIDI keyboard. Connect it, open Settings and press <b>Connect</b> next to <i>MIDI keyboard</i>. The browser may ask for permission first. After that it reconnects by itself whenever you start the instrument.</p>
+    <ul>
+      <li><b>Keys below C3</b> (the C an octave below middle C) choose a chord: the note's name is the chord's root, and the chord type and pattern come from the chord bar. Hold the key to keep the pattern going, as with the chord buttons.</li>
+      <li><b>C3 and above</b> play the melody, placed on the fretboard. Notes the fretboard cannot reach are moved by octaves into its range. How hard you strike the key sets how hard the string is plucked.</li>
+      <li>The <b>sustain pedal</b> lets melody notes ring after you release the keys, the <b>pitch-bend wheel</b> bends the last melody note up by as much as two semitones, and the <b>modulation wheel</b> adds vibrato to the notes you are holding.</li>
+      <li>MIDI notes count in <i>Wait for me</i>, like notes played on the screen.</li>
+    </ul>
+    <p>Safari on iPad and iPhone has no MIDI support, so this is not available there.</p>
 
     <h3 id="m-install">iPad and Windows</h3>
     <p><b>iPad:</b> open the instrument's web address in Safari, tap Share, then <i>Add to Home Screen</i>. Opened from the home screen it runs full screen, and after the first visit it also works without an internet connection. Hold the iPad in landscape.</p>

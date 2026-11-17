@@ -1,5 +1,6 @@
 // Concert Zither — application glue: interface, chords, keyboard, transport.
-import { STRINGS, MELODY_COUNT, N_STRINGS, GROUP_START, CHORD_ROOTS, PC_NAMES, chordStrings, chordName, placeMelodyNote } from './zither-model.js';
+import { STRINGS, MELODY_COUNT, N_STRINGS, GROUP_START, CHORD_ROOTS, PC_NAMES, chordStrings, chordName, placeMelodyNote, setTuning, TUNINGS, VOICES } from './zither-model.js';
+import { MidiInput } from './midi.js';
 import { ZitherScene } from './scene.js';
 import { ZitherAudio } from './audio.js';
 import { ZitherInput, startTremolo } from './input.js';
@@ -12,7 +13,7 @@ const $ = (id) => document.getElementById(id);
 const host = window.chrome && window.chrome.webview ? window.chrome.webview : null;   // Windows shell
 const params = new URLSearchParams(location.search);
 const KEY = 'concertzither.settings.v1';
-export const APP_VERSION = '1.4.0';
+export const APP_VERSION = '1.5.0';
 
 // ---- settings (remembered between sessions) -------------------------------------
 const settings = Object.assign({
@@ -21,7 +22,9 @@ const settings = Object.assign({
   focus: 'all', latch: false, chordBpm: 108, vibrato: true,
   practice: false, mode: 'listen', wait: false, repeat: 'off',
   tremolo: true, tremoloDelay: 320, vibDepth: 1,
+  tuning: 'munich', pitch: 440, voice: 'concert', finish: 'sunburst', hands: true, midi: false,
 }, (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
+setTuning(settings.tuning, settings.pitch);             // before anything places notes or starts the engine
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch (e) { /* private mode */ } };
 
 // ---- core objects --------------------------------------------------------------------
@@ -33,7 +36,7 @@ try { scene = new ZitherScene(canvas); } catch (e) {
   throw e;
 }
 const audio = new ZitherAudio();
-Object.assign(audio.settings, { volume: settings.volume, reverb: settings.reverb, resonance: settings.resonance });
+Object.assign(audio.settings, { volume: settings.volume, reverb: settings.reverb, resonance: settings.resonance, voice: VOICES[settings.voice] || VOICES.concert });
 const input = new ZitherInput(canvas, scene, audio, settings);
 const player = new SongPlayer(audio, scene);
 audio.onLevels = (lv) => scene.setLevels(lv);
@@ -51,6 +54,8 @@ player.onGate = (g) => { if (settings.focus === 'all') return; const want = g.ba
 
 scene.setMirror(settings.mirror);
 scene.setLabels(settings.labels);
+scene.setFinish(settings.finish);
+scene.setHands(settings.hands);
 scene.setView(settings.focus === 'all' ? settings.view : 'top', true);
 scene.setFocus(settings.focus, true);
 player.vibrato = settings.vibrato;
@@ -101,6 +106,7 @@ async function startAudio() {
     await audio.start();
     $('start').classList.add('gone');
     setTimeout(() => { $('start').hidden = true; }, 600);
+    if (settings.midi && midi.supported && !midi.access) midi.connect().catch(() => {});
     $('audioInfo').textContent = `Audio running at ${audio.ctx.sampleRate} Hz · 42 modelled strings · three.js r170`;
     report({});
     return true;
@@ -186,6 +192,7 @@ async function pressChord(pc, opts = {}) {
   if (again) { stopChordLoop(); return; }                 // latched: pressing the sounding chord again stops it
   if (!settings.autoPluck && !opts.force) return;
   const p = opts.pattern || settings.pattern, cs = chordStrings(pc, settings.quality), now = audio.now + 0.02;
+  if (p !== 'chord' && p !== 'alt') player.userPluck(STRINGS[cs.bass].midi, cs.bass);      // counts as your bass note in Wait for me
   if (p === 'bass') { pluckTime(cs.bass, 0.75, now); return; }
   if (p === 'alt') { pluckTime(cs.altBass, 0.7, now); return; }
   if (p === 'chord') { strumAt(cs.acc, 0.58, now); return; }
@@ -271,6 +278,15 @@ window.addEventListener('keyup', (e) => {
   if (held && held.stop) held.stop();
   if (held) { heldKeys.delete(k); scene.setFinger(held.string, 0, 'user'); audio.damp(held.string); }
 });
+
+// ---- MIDI keyboard: keys below C3 choose chords, higher keys play the melody
+const midi = new MidiInput(audio, scene, {
+  onChordOn: (pc, id) => { holds.add(id); pressChord(pc, { force: true }); },
+  onChordOff: (id) => holds.delete(id),
+  onMelodyPluck: (m, s) => player.userPluck(m, s),
+});
+midi.onStatus = (names) => { $('midiStatus').textContent = names.length ? 'Connected: ' + names.join(', ') : 'No MIDI device found. Plug one in; it is picked up automatically.'; };
+window.__midi = midi;
 
 // ---- song library and transport ---------------------------------------------------------------
 const listEl = $('songList');
@@ -534,6 +550,35 @@ slider('vibDepth', 'vibDepth', (v) => { player.vibDepth = v; });
   el.addEventListener('input', () => { settings.tremoloDelay = +el.value; out.textContent = (el.value / 1000).toFixed(2); save(); });
 }
 $('appVersion').textContent = 'Concert Zither ' + APP_VERSION;
+
+// ---- sound, tuning and looks
+function select(id, key, options, apply) {
+  const el = $(id);
+  for (const [v, label] of options) { const o = document.createElement('option'); o.value = v; o.textContent = label; el.appendChild(o); }
+  if (!options.some(([v]) => v === settings[key])) settings[key] = options[0][0];
+  el.value = settings[key];
+  el.addEventListener('change', () => { settings[key] = el.value; save(); apply(el.value); });
+}
+function retune() {
+  audio.setTuning(setTuning(settings.tuning, settings.pitch));
+  const cur = SONGS[songIndex];
+  if (cur && !cur.take) { const was = player.playing; loadSong(songIndex); if (was) player.play().then(syncTransport); }
+}
+select('voiceSel', 'voice', Object.entries(VOICES).map(([k, v]) => [k, v.label]), (v) => audio.setVoice(VOICES[v]));
+select('tuningSel', 'tuning', Object.entries(TUNINGS).map(([k, t]) => [k, t.label]), retune);
+select('finishSel', 'finish', [['sunburst', 'Spruce with amber sunburst'], ['natural', 'Natural spruce, maple sides'], ['walnut', 'Walnut'], ['ebony', 'Black lacquer, gold purfling']], (v) => scene.setFinish(v));
+{
+  const el = $('pitch'), out = $('pitchOut');
+  el.value = settings.pitch; out.textContent = settings.pitch;
+  el.addEventListener('input', () => { out.textContent = el.value; });
+  el.addEventListener('change', () => { settings.pitch = +el.value; save(); retune(); });
+}
+$('midiBtn').addEventListener('click', async () => {
+  try { await startAudio(); await midi.connect(); settings.midi = true; save(); }
+  catch (e) { $('midiStatus').textContent = e.message || String(e); }
+});
+if (!midi.supported) { $('midiBtn').disabled = true; $('midiStatus').textContent = 'Not available in this browser. Safari has no MIDI support; use Chrome or Edge on a computer, or the Windows app.'; }
+else $('midiStatus').textContent = settings.midi ? 'Reconnects when you start playing.' : 'Keys below C3 play chords; higher keys play the melody.';
 function setMirror(on) { settings.mirror = on; $('mirror').checked = on; scene.setMirror(on); save(); }
 function checkbox(id, key, apply) {
   const el = $(id); el.checked = !!settings[key];
@@ -544,6 +589,7 @@ checkbox('labels', 'labels', (v) => scene.setLabels(v));
 checkbox('tapSounds', 'tapSounds');
 checkbox('vibrato', 'vibrato', (v) => { player.vibrato = v; });
 checkbox('tremolo', 'tremolo');
+checkbox('hands', 'hands', (v) => scene.setHands(v));
 
 syncPractice();
 recorder.onChange();            // shows a take kept from the last session

@@ -75,7 +75,7 @@ export class Recorder {
       a._post({ ...e.m, time: start + e.t });
       if (e.m.type !== 'pluck') continue;
       this.timers.push(setTimeout(() => {
-        sc.flash(e.m.s, 0.9);
+        sc.flash(e.m.s, 0.9); sc.handPluck(e.m.s);
         if (e.m.s < MELODY_COUNT && e.m.fret != null) {
           sc.setFinger(e.m.s, e.m.fret, 'song');
           this.timers.push(setTimeout(() => { if (sc.markers[e.m.s].song.fret === e.m.fret) sc.setFinger(e.m.s, 0, 'song'); }, 420));
@@ -104,7 +104,7 @@ export class Recorder {
     if (!ctx.audioWorklet) throw new Error('This browser cannot run the string engine offline.');
     await ctx.audioWorklet.addModule(new URL('../worklet/zither-processor.js', import.meta.url).href);
     const cfg = engineConfig();
-    cfg.resonance = this.audio.settings.resonance;
+    cfg.resonance = this.audio.settings.resonance; cfg.voice = this.audio.settings.voice;
     // the commands travel with the engine's start-up options, so their timing cannot slip
     cfg.events = this.events.map((e) => ({ ...e.m, time: e.t + 0.05 }));
     const node = new AudioWorkletNode(ctx, 'zither', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: cfg });

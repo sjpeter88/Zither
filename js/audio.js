@@ -28,7 +28,7 @@ export class ZitherAudio {
     const resume = ctx.resume();            // synchronously inside the gesture
     if (!ctx.audioWorklet) throw new Error('This browser has no AudioWorklet support (needs Safari 14.5+ / a current browser).');
     await ctx.audioWorklet.addModule(new URL('../worklet/zither-processor.js', import.meta.url).href);
-    const cfg = engineConfig(); cfg.resonance = this.settings.resonance;
+    const cfg = engineConfig(); cfg.resonance = this.settings.resonance; cfg.voice = this.settings.voice;
     const node = this.node = new AudioWorkletNode(ctx, 'zither', {
       numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: cfg,
     });
@@ -107,5 +107,7 @@ export class ZitherAudio {
 
   setVolume(v) { this.settings.volume = v; if (this.master) this.master.gain.value = v * v * 1.6; }
   setReverb(v) { this.settings.reverb = v; if (this.wet) this.wet.gain.value = v * 1.4; }
+  setVoice(v) { this.settings.voice = v; this._post({ type: 'voice', value: v }); }
+  setTuning(freqs) { this._post({ type: 'tuning', freqs }); }
   setResonance(v) { this.settings.resonance = v; this._post({ type: 'resonance', value: v }); }
 }

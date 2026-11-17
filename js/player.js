@@ -434,12 +434,12 @@ export class SongPlayer {
           if (this.vibrato && end - time > 0.6) a.vibrato(e.string, 0.16 * this.vibDepth, 5.5, 0.25, time);
           if (e.damp) a.damp(e.string, Math.max(time + 0.05, end + 0.03));
         }
-        this._later(time, () => { sc.setFinger(e.string, e.fret, 'song'); sc.flash(e.string, 0.9); });
+        this._later(time, () => { sc.setFinger(e.string, e.fret, 'song'); sc.flash(e.string, 0.9); if (!mine) sc.handPluck(e.string); });
         this._later(end - 0.02, () => { if (sc.markers[e.string].song.fret === e.fret && !(this.gate && !this.gate.bass && this.gate.e.string === e.string)) sc.setFinger(e.string, 0, 'song'); });
       } else if (e.type === 'open') {
         time += (e.roll || 0) * 0.013;                    // roll chords slightly, low string first
         if (!userChords) a.pluck(e.string, e.vel, undefined, time);
-        this._later(time, () => sc.flash(e.string, 0.8));
+        this._later(time, () => { sc.flash(e.string, 0.8); if (!userChords) sc.handPluck(e.string); });
       } else if (e.type === 'damp') {
         if (!userChords) a.damp(e.string, time);
       } else if (e.type === 'chord') {

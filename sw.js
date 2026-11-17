@@ -1,8 +1,8 @@
 // Offline cache for the home-screen web app. Bump VERSION whenever files change.
-const VERSION = 'concert-zither-v8';
+const VERSION = 'concert-zither-v9';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
-  'js/main.js', 'js/zither-model.js', 'js/scene.js', 'js/audio.js', 'js/input.js', 'js/player.js', 'js/songs.js', 'js/tab.js', 'js/recorder.js',
+  'js/main.js', 'js/zither-model.js', 'js/scene.js', 'js/audio.js', 'js/input.js', 'js/player.js', 'js/songs.js', 'js/tab.js', 'js/recorder.js', 'js/midi.js',
   'worklet/zither-processor.js', 'lib/three.module.min.js',
   'icons/icon-32.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
 ];

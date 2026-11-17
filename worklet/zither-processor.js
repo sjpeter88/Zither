@@ -49,6 +49,11 @@
       this.lpB = new Float64Array(n); this.lpP = new Float64Array(n); this.lpS = new Float64Array(n);
       this.apA = new Float64Array(n); this.apZ = new Float64Array(n * NAP);
       this.Y = new Float64Array(n);
+      // DC blocker inside each string loop (normalised so its gain never exceeds 1):
+      // without it a DC offset left by a pluck would circulate almost without loss
+      this.dcX = new Float64Array(n); this.dcY = new Float64Array(n);
+      // cutoff 0.25 Hz: its phase is compensated at the fundamental, and the upper partials move by only ~0.04 Hz
+      this.dcR = 1 - 2 * Math.PI * 0.25 / sr; this.dcK = (1 + this.dcR) / 2;
       this.cA = new Float64Array(n); this.wL = new Float64Array(n); this.wR = new Float64Array(n);
       this.exc = new Float32Array(n * size); this.excPos = new Int32Array(n); this.excLen = new Int32Array(n);
       this.tmp = new Float32Array(size);
@@ -60,7 +65,7 @@
       this.vibStart = new Float64Array(n); this.vibPhase = new Float64Array(n);
 
       this.master = cfg.master == null ? 1 : cfg.master;
-      this.bright = 1;
+      this.bright = 1; this.sustain = 1;
       this.queue = [];
       this.now = 0;
       this.asleep = true; this.quiet = 0;
@@ -82,21 +87,51 @@
       this.mb = new Float64Array(M); this.ma1 = new Float64Array(M); this.ma2 = new Float64Array(M);
       this.mz1 = new Float64Array(M); this.mz2 = new Float64Array(M);
       this.mgL = new Float64Array(M); this.mgR = new Float64Array(M);
-      for (let k = 0; k < M; k++) {
-        const [f, gain, Q, off] = BODY_MODES[k];
-        if (f > 0.45 * sr) continue;
-        const w0 = TWO_PI * f / sr, alpha = Math.sin(w0) / (2 * Q), a0 = 1 + alpha;
-        this.mb[k] = alpha / a0; this.ma1[k] = -2 * Math.cos(w0) / a0; this.ma2[k] = (1 - alpha) / a0;
-        this.mgL[k] = gain * (1 - off); this.mgR[k] = gain * (1 + off);
-      }
+      this._setBody(1, 0);
       this.hpK = 1 - Math.exp(-TWO_PI * 95 / sr);
       this.hpL = 0; this.hpR = 0;
 
       this.setResonance(cfg.resonance == null ? 0.5 : cfg.resonance);
+      if (cfg.voice) this.setVoice(cfg.voice);
       if (cfg.events) for (const m of cfg.events) this.handle(m);
     }
 
     // ---- parameters ----------------------------------------------------------
+    /** Soundbox modes; fscale moves them all in frequency (a bigger or denser box
+     *  sounds lower), tilt leans their levels towards the lows (<0) or highs (>0). */
+    _setBody(fscale, tilt) {
+      const sr = this.sr;
+      for (let k = 0; k < this.nm; k++) {
+        const [f0, gain, Q, off] = BODY_MODES[k], f = f0 * fscale;
+        if (f > 0.45 * sr) { this.mb[k] = 0; this.mgL[k] = this.mgR[k] = 0; continue; }
+        const w0 = TWO_PI * f / sr, alpha = Math.sin(w0) / (2 * Q), a0 = 1 + alpha;
+        this.mb[k] = alpha / a0; this.ma1[k] = -2 * Math.cos(w0) / a0; this.ma2[k] = (1 - alpha) / a0;
+        const g = gain * Math.pow(f0 / 1000, tilt);
+        this.mgL[k] = g * (1 - off); this.mgR[k] = g * (1 + off);
+      }
+    }
+
+    /** Sound preset: string brightness, sustain, and the soundbox. */
+    setVoice(v) {
+      this.bright = Math.max(0.4, Math.min(2, v.bright || 1));
+      this.sustain = Math.max(0.5, Math.min(2, v.sustain || 1));
+      this._setBody(v.fscale || 1, v.tilt || 0);
+      for (let i = 0; i < this.n; i++) {
+        if (this.glide[i]) continue;
+        const L = this._coefs(i, this.curF[i]);
+        this.dl[i] = this.dEnd[i] = L; this._taps(i, L);
+      }
+    }
+
+    /** New open-string frequencies (another tuning or concert pitch). Ringing strings glide to the new pitch. */
+    setTuning(freqs) {
+      for (let i = 0; i < this.n && i < freqs.length; i++) {
+        if (!(freqs[i] > 20 && freqs[i] < 5000)) continue;
+        this.cfg[i].freq = freqs[i]; this.tau[i] = 0.04;
+        this._retune(i, false);
+      }
+    }
+
     setResonance(r) {
       r = Math.min(1, Math.max(0, r));
       this.resonance = r;
@@ -120,7 +155,7 @@
       const sr = this.sr, c = this.cfg[i];
       const w0 = TWO_PI * f / sr, period = sr / f;
       const fr = this.fret[i];
-      const t60 = this.damped[i] ? 0.1 : c.t60 * (fr > 0 ? 0.55 + 0.45 * Math.pow(2, -fr / 12) : 1);
+      const t60 = this.damped[i] ? 0.1 : this.sustain * c.t60 * (fr > 0 ? 0.55 + 0.45 * Math.pow(2, -fr / 12) : 1);
       const G = Math.pow(10, -3 / (f * t60));                 // loop gain per round trip at f
       // damping pole from a target decay time at a high reference frequency
       const fh = Math.min(0.42 * sr, Math.max(3000, 3 * f));
@@ -141,7 +176,10 @@
       // At least half of the decay (in dB) is always lost inside the string
       // itself, so even a mode that sends nothing into the bridge (two unison
       // strings moving in opposition) dies away. g <= 1 keeps the loop passive.
-      let g = Math.min(G / (1 - this.cA[i]), Math.sqrt(G)) / m0;
+      const R = this.dcR, cw = Math.cos(w0), sw = Math.sin(w0);
+      const mHP = this.dcK * Math.hypot(1 - cw, sw) / Math.hypot(1 - R * cw, R * sw);
+      const pdHP = -(Math.atan2(sw, 1 - cw) - Math.atan2(R * sw, 1 - R * cw)) / w0;     // a small lead: negative delay
+      let g = Math.min(G / (1 - this.cA[i]), Math.sqrt(G)) / (m0 * mHP);
       if (g > 1) g = 1;
       this.lpP[i] = p; this.lpB[i] = g * (1 - p);
 
@@ -153,7 +191,7 @@
       const s0 = Math.sin(w0);
       const pdAP = a === 0 ? 1 : -(Math.atan2(-s0, a + c0) - Math.atan2(-a * s0, 1 + a * c0)) / w0;
       const pdLP = p === 0 ? 0 : Math.atan2(p * s0, 1 - p * c0) / w0;
-      let L = period - pdLP - NAP * pdAP;
+      let L = period - pdLP - NAP * pdAP - pdHP;
       if (L < 2) L = 2;
       return L;
     }
@@ -188,7 +226,7 @@
       // the finger or pick touches the string first and kills most of what was ringing
       const base = s * this.BUF, k = 0.3;
       for (let j = 0; j < this.BUF; j++) this.buf[base + j] *= k;
-      this.lpS[s] *= k;
+      this.lpS[s] *= k; this.dcX[s] *= k; this.dcY[s] *= k;
       for (let j = 0; j < NAP; j++) this.apZ[s * NAP + j] *= k;
       this._excite(s, vel == null ? 0.8 : vel, kind || this.cfg[s].kind);
     }
@@ -246,7 +284,7 @@
         const low = Math.min(2.6, Math.max(0, Math.log2(262 / f)));
         widthMs = (0.4 + 0.7 * (1 - vel)) * (1 + 0.5 * low); noise = 0.035; beta = 0.19 + 0.05 * this._rand();
       }
-      const wS = Math.max(2, widthMs * sr / 1000);
+      const wS = Math.max(2, widthMs / Math.sqrt(this.bright) * sr / 1000);
       const A = Math.pow(vel, 1.35) * (this.cfg[i].gain || 1) * (0.97 + 0.06 * this._rand());
       // pulse area chosen so loudness stays even from the lowest to the highest note
       const area = 0.125 * A * sr * Math.pow(1 / f, 0.75) * Math.pow(1 / 440, 0.25);
@@ -288,11 +326,13 @@
         case 'flush': this.queue.length = 0; break;
         case 'resonance': this.setResonance(m.value); break;
         case 'master': this.master = m.value; break;
+        case 'voice': this.setVoice(m.value); break;
+        case 'tuning': this.setTuning(m.freqs); break;
       }
     }
 
     reset() {
-      this.buf.fill(0); this.lpS.fill(0); this.apZ.fill(0); this.Y.fill(0);
+      this.buf.fill(0); this.lpS.fill(0); this.dcX.fill(0); this.dcY.fill(0); this.apZ.fill(0); this.Y.fill(0);
       this.mz1.fill(0); this.mz2.fill(0); this.hpL = this.hpR = 0;
       this.excLen.fill(0); this.excPos.fill(0);
     }
@@ -338,6 +378,7 @@
       const N = this.n, size = this.BUF, mask = this.MASK, buf = this.buf;
       const dl = this.dl, dInc = this.dInc, di = this.di, h0 = this.h0, h1 = this.h1, h2 = this.h2, h3 = this.h3;
       const lpB = this.lpB, lpP = this.lpP, lpS = this.lpS, apA = this.apA, apZ = this.apZ;
+      const dcX = this.dcX, dcY = this.dcY, dcR = this.dcR, dcK = this.dcK;
       const Y = this.Y, cA = this.cA, wL = this.wL, wR = this.wR;
       const exc = this.exc, excPos = this.excPos, excLen = this.excLen;
       const M = this.nm, mb = this.mb, ma1 = this.ma1, ma2 = this.ma2, mz1 = this.mz1, mz2 = this.mz2;
@@ -379,6 +420,8 @@
             + h2[i] * buf[base + ((r - 1) & mask)] + h3[i] * buf[base + ((r - 2) & mask)];
           let y = lpB[i] * x + lpP[i] * lpS[i];
           lpS[i] = y;
+          const yd = dcK * (y - dcX[i]) + dcR * dcY[i];
+          dcX[i] = y; dcY[i] = yd; y = yd;
           const a = apA[i], j = i * NAP;
           let t = a * y + apZ[j]; apZ[j] = y - a * t; y = t;
           t = a * y + apZ[j + 1]; apZ[j + 1] = y - a * t; y = t;

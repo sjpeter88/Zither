@@ -1,9 +1,8 @@
 // Scrolling tablature for the melody: five lines for the five melody strings
 // (in the same order as on screen), fret numbers at each note, chord symbols
 // above, and a fixed playhead the music scrolls past.
-import { STRINGS, MELODY_COUNT } from './zither-model.js';
+import { STRINGS, MELODY_COUNT, stringLabel } from './zither-model.js';
 
-const NAMES = ['a′', 'a′', 'd′', 'g', 'c'];
 
 export class TabStrip {
   constructor(canvas, player) {
@@ -74,7 +73,7 @@ export class TabStrip {
     // string names and playhead
     c.fillStyle = 'rgba(22,16,12,0.9)'; c.fillRect(0, 0, gutter, h);
     c.font = '600 11px Georgia, serif'; c.textAlign = 'center';
-    for (let s = 0; s < MELODY_COUNT; s++) { c.fillStyle = '#b9aa92'; c.fillText(NAMES[s], gutter / 2, lineY(s)); }
+    for (let s = 0; s < MELODY_COUNT; s++) { c.fillStyle = '#b9aa92'; c.fillText(stringLabel(s), gutter / 2, lineY(s)); }
     c.strokeStyle = p.waiting ? '#ffe2ad' : 'rgba(244,213,148,0.85)'; c.lineWidth = p.waiting ? 2.5 : 1.5;
     c.beginPath(); c.moveTo(head, 14); c.lineTo(head, h - 3); c.stroke();
     if (p.wait && p.mode !== 'listen') {

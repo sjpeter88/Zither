@@ -61,6 +61,14 @@ function outline() {
   return pts;
 }
 
+// Wood finishes: [light, dark] grain colours for the top and sides, the sunburst, and the purfling.
+const FINISHES = {
+  sunburst: { top: [[226, 164, 84], [168, 100, 40]], burst: [[0, '#ffffff'], [0.55, '#f0d2a8'], [0.85, '#8f5326'], [1, '#3c1c0c']], side: [[74, 38, 20], [24, 11, 6]], purfling: '#f1e2c0' },
+  natural: { top: [[238, 204, 146], [204, 160, 100]], burst: [[0, '#ffffff'], [0.7, '#fbf3e6'], [0.92, '#e5cda6'], [1, '#b98c56']], side: [[206, 162, 108], [158, 110, 64]], purfling: '#3a2414' },
+  walnut: { top: [[150, 100, 62], [92, 58, 32]], burst: [[0, '#ffffff'], [0.55, '#ecdccb'], [0.85, '#7c5030'], [1, '#2c1608']], side: [[98, 64, 42], [44, 27, 17]], purfling: '#e8d6b0' },
+  ebony: { top: [[46, 36, 30], [22, 17, 14]], burst: [[0, '#ffffff'], [0.7, '#e6e2de'], [0.9, '#a39d97'], [1, '#5d5853']], side: [[34, 26, 21], [12, 9, 8]], purfling: '#e2c070' },
+};
+
 export class ZitherScene {
   constructor(canvas) {
     this.canvas = canvas;
@@ -86,6 +94,7 @@ export class ZitherScene {
     this.view = { az: 0, el: 1.2, zoom: 1 }; this.viewTarget = { az: 0, el: 1.2, zoom: 1 };
     this.viewName = 'play'; this.orbiting = false;
     this.time = 0; this.mirror = false;
+    this.finishPal = FINISHES.sunburst; this.handsOn = true;
     // the part of the instrument the camera frames (model mm): whole body, fretboard, or open strings
     this.zones = {
       all: { x0: -16, x1: L + 16, d0: -14, d1: D + 14, y0: -H, y1: 16 },
@@ -105,6 +114,7 @@ export class ZitherScene {
     this._strings();
     this._labels();
     this._markers();
+    this._hands();
     this.setView('play', true);
     this.resize();
   }
@@ -175,8 +185,9 @@ export class ZitherScene {
 
     // spruce top painted on one canvas: grain, sunburst and purfling together
     const TW = 1536, TH = Math.round(1536 * D / L);
-    const top = canvasTexture(TW, TH, (ctx, w, h) => {
-      paintWood(ctx, w, h, { light: [226, 164, 84], dark: [168, 100, 40], ring: 1.55, sharp: 2.2, contrast: 0.75, wobble: 0.0016, wobbleAmp: 9, fiber: 0.22, cloud: 0.35 });
+    const paintTop = (ctx, w, h) => {
+      const F = this.finishPal;
+      paintWood(ctx, w, h, { light: F.top[0], dark: F.top[1], ring: 1.55, sharp: 2.2, contrast: 0.75, wobble: 0.0016, wobbleAmp: 9, fiber: 0.22, cloud: 0.35 });
       const sx = w / L, sy = h / D;
       // canvas row 0 is the far side
       const P = (k) => pts.map(([x, d]) => [(L / 2 + (x - L / 2) * k) * sx, h - (D / 2 + (d - D / 2) * k) * sy]);
@@ -185,12 +196,12 @@ export class ZitherScene {
       ctx.globalCompositeOperation = 'multiply';
       const cx = w * 0.5, cy = h * 0.5;
       const rg = ctx.createRadialGradient(cx, cy, h * 0.18, cx, cy, w * 0.62);
-      rg.addColorStop(0, '#ffffff'); rg.addColorStop(0.55, '#f0d2a8'); rg.addColorStop(0.85, '#8f5326'); rg.addColorStop(1, '#3c1c0c');
+      F.burst.forEach(([o, c]) => rg.addColorStop(o, c));
       ctx.fillStyle = rg; ctx.fillRect(0, 0, w, h);
       ctx.globalCompositeOperation = 'source-over';
       ctx.lineJoin = 'round';
       trace(0.992); ctx.lineWidth = 7 * sx; ctx.strokeStyle = '#1b0f08'; ctx.stroke();        // dark binding
-      trace(0.972); ctx.lineWidth = 1.1 * sx; ctx.strokeStyle = '#f1e2c0'; ctx.stroke();       // ivory purfling
+      trace(0.972); ctx.lineWidth = 1.1 * sx; ctx.strokeStyle = F.purfling; ctx.stroke();       // ivory purfling
       trace(0.966); ctx.lineWidth = 0.8 * sx; ctx.strokeStyle = '#2a170c'; ctx.stroke();
       // rosette around the sound hole
       const hx = GEOM.holeX * sx, hy = h - GEOM.holeD * sy, R = GEOM.holeR * sx;
@@ -201,12 +212,14 @@ export class ZitherScene {
         ctx.save(); ctx.translate(hx + rr * Math.cos(a), hy + rr * Math.sin(a)); ctx.rotate(a + Math.PI / 4);
         ctx.fillStyle = k % 2 ? '#e9dcc0' : '#b98a4a'; ctx.fillRect(-1.5 * sx, -1.5 * sx, 3 * sx, 3 * sx); ctx.restore();
       }
-    });
+    };
+    const top = canvasTexture(TW, TH, paintTop);
     top.wrapS = top.wrapT = THREE.ClampToEdgeWrapping;
     top.repeat.set(1 / L, 1 / D); top.offset.set(0.5, 0.5);
-    const side = canvasTexture(512, 512, (ctx, w, h) => paintWood(ctx, w, h, {
-      light: [74, 38, 20], dark: [24, 11, 6], ring: 0.22, sharp: 1.3, contrast: 1, wobble: 0.006, wobbleAmp: 30, fiber: 0.3, cloud: 0.5,
-    }));
+    const paintSide = (ctx, w, h) => paintWood(ctx, w, h, {
+      light: this.finishPal.side[0], dark: this.finishPal.side[1], ring: 0.22, sharp: 1.3, contrast: 1, wobble: 0.006, wobbleAmp: 30, fiber: 0.3, cloud: 0.5,
+    });
+    const side = canvasTexture(512, 512, paintSide);
     side.repeat.set(1 / 180, 1 / 180);
     const topMat = new THREE.MeshPhysicalMaterial({ map: top, roughness: 0.34, clearcoat: 0.85, clearcoatRoughness: 0.12 });
     const sideMat = new THREE.MeshPhysicalMaterial({ map: side, roughness: 0.4, clearcoat: 0.7, clearcoatRoughness: 0.18 });
@@ -214,6 +227,9 @@ export class ZitherScene {
     body.castShadow = body.receiveShadow = true;
     this.inst.add(body);
     this.sideTex = side;
+    this._repaint = () => {
+      for (const [tex, fn] of [[top, paintTop], [side, paintSide]]) { const cv = tex.image; fn(cv.getContext('2d'), cv.width, cv.height); tex.needsUpdate = true; }
+    };
 
     // inside of the box, seen through the sound hole
     const inside = new THREE.Mesh(new THREE.CircleGeometry(GEOM.holeR + 30, 40), new THREE.MeshStandardMaterial({ color: 0x3a2413, roughness: 0.95 }));
@@ -418,7 +434,74 @@ export class ZitherScene {
   setLevels(lv) { this.levels.set(lv); this.lastLevels = performance.now(); }
 
   /** Show a fingertip on a melody string at a fret (fret <= 0 hides it). */
+  // ---- hands: a thumb with its metal ring for the melody strings, three fingertips
+  // for the open strings, and two fretting fingertips. They appear during playback only.
+  _hands() {
+    const skinCol = 0xd9a183, metal = new THREE.MeshStandardMaterial({ color: 0xd8d4cc, metalness: 1, roughness: 0.25, transparent: true, opacity: 0 });
+    const digit = (r, len, extra) => {
+      const mat = new THREE.MeshStandardMaterial({ color: skinCol, roughness: 0.62, transparent: true, opacity: 0 });
+      const geo = new THREE.CapsuleGeometry(r, len, 6, 14); geo.rotateX(Math.PI / 2); geo.translate(0, 0, len / 2);
+      const grp = new THREE.Group(), body = new THREE.Mesh(geo, mat);
+      body.castShadow = true; grp.add(body);
+      const mats = [mat];
+      if (extra) for (const m of extra(grp)) mats.push(m);
+      grp.rotation.x = -0.55;                 // the finger rises towards the player
+      grp.visible = false; grp.renderOrder = 6;
+      this.inst.add(grp);
+      return { grp, mats, r, x: 0, d: 0, tx: 0, td: 0, y: 0, dip: 0, used: -9, lift: -9, string: -1, alpha: 0, baseY: GEOM.openY };
+    };
+    const thumbExtras = (grp) => {
+      const m = metal.clone();
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(8.6, 1.5, 8, 24), m); ring.position.z = 9; grp.add(ring);
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(5, 0.9, 12), m); blade.position.set(0, -6, -7); grp.add(blade);
+      return [m];
+    };
+    this.hand = {
+      thumb: digit(7.6, 22, thumbExtras),
+      index: digit(6.2, 20), middle: digit(6.4, 22), ring: digit(6, 19),
+      left: [digit(6.6, 22), digit(6.4, 21)],
+    };
+    this.hand.thumb.baseY = GEOM.melodyY;
+    for (const l of this.hand.left) l.baseY = GEOM.melodyY;
+  }
+
+  setHands(on) {
+    this.handsOn = !!on;
+    if (!on) for (const dg of this._digits()) { dg.alpha = 0; dg.grp.visible = false; }
+  }
+  _digits() { const h = this.hand; return [h.thumb, h.index, h.middle, h.ring, ...h.left]; }
+
+  _place(dg, x, d) {
+    if (dg.alpha < 0.05) { dg.x = x; dg.d = d; }        // appear in place rather than flying in
+    dg.tx = x; dg.td = d;
+  }
+
+  /** Animate a pluck of this string by the right hand (song playback and replays). */
+  handPluck(string) {
+    if (!this.handsOn) return;
+    const s = STRINGS[string], h = this.hand, now = this.time;
+    let dg, x;
+    if (string < MELODY_COUNT) { dg = h.thumb; x = GEOM.pluckX0 + 24; }
+    else if (s.group === 'acc') {
+      const a = h.index, b = h.middle;
+      const aBusy = now - a.used < 0.1 && a.string !== string, bBusy = now - b.used < 0.1 && b.string !== string;
+      dg = aBusy ? b : bBusy ? a : (Math.abs(a.d - s.d) <= Math.abs(b.d - s.d) ? a : b);
+      x = dg === a ? 396 : 404;
+    } else { dg = h.ring; x = 418; }
+    this._place(dg, x, s.d);
+    dg.dip = 1; dg.used = now; dg.string = string;
+  }
+
   setFinger(string, fret, who = 'user') {
+    if (who === 'song' && this.handsOn) {
+      const L = this.hand.left;
+      if (fret > 0) {
+        const dg = L.find((l) => l.string === string && this.time - l.lift > 0.05 && l.lift < l.used) || L.slice().sort((p, q) => p.used - q.used)[0];
+        const xf = fretX(fret) - Math.min(9, (fretX(fret) - fretX(fret - 1)) * 0.42);
+        this._place(dg, xf, STRINGS[string].d);
+        dg.used = this.time; dg.string = string; dg.lift = -9; dg.dip = 1;
+      } else for (const l of this.hand.left) if (l.string === string) l.lift = this.time;
+    }
     const mk = this.markers[string] && this.markers[string][who];
     if (!mk) return;
     mk.fret = fret;
@@ -505,6 +588,30 @@ export class ZitherScene {
     cam.setViewOffset(w, h, 0, (this.insets.bottom - this.insets.top) / 2, w, h);
     cam.updateProjectionMatrix();
     cam.updateMatrixWorld();
+  }
+
+  _updateHands(dt) {
+    const k = 1 - Math.exp(-dt * 24), now = this.time;
+    for (const dg of this._digits()) {
+      const left = this.hand.left.includes(dg);
+      const lifted = left && dg.lift > dg.used;
+      const want = !lifted && now - dg.used < (left ? 2.5 : 1.4) ? 0.93 : 0;
+      dg.alpha += (want - dg.alpha) * Math.min(1, dt * (want ? 10 : 3));
+      dg.grp.visible = dg.alpha > 0.02;
+      if (!dg.grp.visible) continue;
+      dg.x += (dg.tx - dg.x) * k; dg.d += (dg.td - dg.d) * k;
+      let y;
+      if (left) y = dg.baseY + dg.r * 0.55 + (lifted ? Math.min(1, (now - dg.lift) * 4) * 14 : 0);
+      else { dg.dip = Math.max(0, dg.dip - dt * 5); y = dg.baseY + dg.r * 0.55 + 15 * (1 - dg.dip); }
+      dg.grp.position.set(X(dg.x), y, Z(dg.d));
+      for (const m of dg.mats) m.opacity = dg.alpha;
+    }
+  }
+
+  /** Change the wood finish of the soundbox. */
+  setFinish(name) {
+    this.finishPal = FINISHES[name] || FINISHES.sunburst;
+    if (this._repaint) this._repaint();
   }
 
   /** Screen point -> model coordinates (mm) on the plane of the strings. */
@@ -609,6 +716,7 @@ export class ZitherScene {
         st.glow.material.color.setHex(st.flash * 0.2 > st.hint * 0.11 ? 0xffe2ad : st.hintColor ? 0xff9d3c : 0xffd27a);
       }
     }
+    if (this.handsOn) this._updateHands(dt);
     for (const pair of this.markers) for (const who in pair) {
       const mk = pair[who];
       if (mk.grp.visible) { mk.pop = Math.max(0, mk.pop - dt * 6); const sc = 1 + mk.pop * 0.5; mk.grp.scale.set(sc, 1, sc); }
