@@ -79,7 +79,7 @@
     <div class="seg" id="modeSeg" role="group" aria-label="Who plays">
       <button data-m="listen" title="The app plays melody and accompaniment">Listen</button><button data-m="melody" title="You play the melody; the app accompanies">I play melody</button><button data-m="chords" title="You play bass and chords; the app plays the melody">I play chords</button>
     </div>
-    <button id="waitBtn" class="chip toggle" aria-pressed="false" title="The song waits at each melody note until you pluck it">Wait for me</button>
+    <div class="pc-row"><button id="waitBtn" class="chip toggle" aria-pressed="false" title="The song waits at each melody note until you pluck it">Wait for me</button><button id="notationBtn" class="chip toggle" aria-pressed="false">Tab</button></div>
   </div>
   <canvas id="tab" aria-label="Scrolling tablature of the melody"></canvas>
 </section>
@@ -87,6 +87,7 @@
 <aside id="library" class="drawer panel" role="dialog" aria-label="Song library" hidden>
   <div class="drawer-head"><h2>Song library</h2><button class="icon close" data-close="library" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <p class="drawer-note">Public-domain pieces in arrangements for this zither. The fretboard and strings follow the playing. <span class="app-version"></span></p>
+  <div class="key-row" id="keyRow" hidden><span>Key of this piece</span><button id="keyDown" class="icon" aria-label="Down a semitone" title="Down a semitone">−</button><b id="keyName"></b><button id="keyUp" class="icon" aria-label="Up a semitone" title="Up a semitone">+</button><button id="keyReset" class="chip">Original</button></div>
   <div class="search-row"><input id="songSearch" type="search" placeholder="Search title, composer or kind…" autocomplete="off" spellcheck="false" aria-label="Search the library"><button id="favOnlyBtn" class="chip toggle" aria-pressed="false" title="Show favourites only">★ Favourites</button></div>
   <div class="drawer-actions"><button id="playAllBtn" class="chip">Play all, on repeat</button><button id="importBtn" class="chip">Add a song…</button><button id="exportBtn" class="chip" title="Save your songs and kept recordings to a file">Export mine</button><button id="importFileBtn" class="chip" title="Load songs and recordings exported on another device, or an .abc file">Import file…</button></div>
   <input id="importFile" type="file" accept=".json,.abc,.txt,application/json,text/plain" hidden>
@@ -104,9 +105,10 @@
   <label class="row"><span>Finish</span><select id="finishSel"></select></label>
   <label class="row switch"><span>Show hands during playback</span><input id="hands" type="checkbox"><i></i></label>
   <label class="row switch"><span>Count in one bar before a piece starts</span><input id="countIn" type="checkbox"><i></i></label>
+  <label class="row"><span>Metronome beats per bar</span><select id="metroBeats"><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
   <label class="row switch"><span>Speed trainer: each time an A–B loop repeats, play it 5% faster, up to full speed</span><input id="speedUp" type="checkbox"><i></i></label>
   <div class="row midi-row"><span>MIDI keyboard<small id="midiStatus"></small></span><button id="midiBtn" class="chip">Connect</button></div>
-  <label class="row"><span>Chord pattern tempo <output id="chordBpmOut"></output> bpm</span><input id="chordBpm" type="range" min="60" max="180"></label>
+  <label class="row"><span>Chord pattern and metronome tempo <output id="chordBpmOut"></output> bpm</span><input id="chordBpm" type="range" min="60" max="180"></label>
   <label class="row switch"><span>Vibrato on long notes (songs and keyboard)</span><input id="vibrato" type="checkbox"><i></i></label>
   <label class="row"><span>Vibrato depth</span><input id="vibDepth" type="range" min="0" max="200"></label>
   <label class="row switch"><span>Tremolo when resting on a plucked string</span><input id="tremolo" type="checkbox"><i></i></label>
@@ -179,6 +181,7 @@
       <li><b>Auto-pluck</b> on: choosing a chord plays it. Off: the strings are only lit, so you can pluck them yourself.</li>
       <li><b>Keep it going:</b> hold a chord button down and the pattern repeats in tempo, alternating the bass between the root and the fifth, until you let go; it finishes the bar it is in. Press another chord to change.</li>
       <li><b>Latch</b> on: the pattern keeps playing after you let go, leaving both hands free for the melody. Press the same chord again, or Damp, to stop it.</li>
+      <li><b>Metronome</b> clicks at the chord pattern tempo, with an accent on the first beat of each bar (2, 3 or 4 beats a bar, set in Settings). While it runs, chord patterns start on its next beat so they stay in time. It switches off when you start a piece. Key: <kbd>B</kbd>.</li>
       <li><b>Damp</b> silences all strings, stops a running pattern and clears the lit chord.</li>
     </ul>
     <p>The speed of the patterns is set by <i>Chord pattern tempo</i> in Settings.</p>
@@ -197,6 +200,7 @@
       <tr><td><kbd>Enter</kbd></td><td>Play or pause the song</td></tr>
       <tr><td><kbd>Esc</kbd></td><td>Close open panels and damp all strings</td></tr>
       <tr><td><kbd>M</kbd></td><td>Mirror the instrument</td></tr>
+      <tr><td><kbd>B</kbd></td><td>Metronome on or off</td></tr>
       <tr><td><kbd>F1</kbd></td><td>Open this manual</td></tr>
     </table>
 
@@ -213,6 +217,8 @@
     </ul>
     <p>All pieces are public-domain compositions in arrangements made for this instrument. Each carries a label saying how its notes were obtained: <b>From score</b> (transcribed from a public-domain edition), <b>Read from scan</b> (read by eye from a scanned score, so small misreadings are possible) or <b>From memory</b> (approximate, not checked against a score). The selected piece also shows its source.</p>
 
+    <p><b>Changing the key.</b> At the top of the library, <i>Key of this piece</i> shows the key of the piece you have chosen. Press − or + to move it down or up a semitone at a time (as far as six either way), for instance to suit a singer or another instrument. Melody, chords, tablature and notation all follow, and the setting is remembered for that piece. <b>Original</b> puts it back.</p>
+    <p><b>Grace notes.</b> Some pieces have short ornamental notes before a main note. The zither plays them the way a player would: a quick pluck of the grace note, then the finger hammers on or pulls off to the main note on the same string. In ABC notation they are written in curly brackets, for example <kbd>{A}B</kbd>.</p>
     <p><b>Finding a piece.</b> Type in the search box at the top of the library to find pieces by title, composer, kind (for example "polka" or "German") or key. Tap the star beside a piece to make it a favourite, and <b>★ Favourites</b> to show only your favourites.</p>
     <p><b>Practice record.</b> Each time you finish a piece with <i>Wait for me</i> on, the library notes it under the piece: how many times you have practised it, and your best result — the share of notes you got right first time and the shortest average wait — from run-throughs where you played at least nine notes in ten. The record is kept on this device.</p>
     <p><b>Adding your own songs.</b> <i>Add a song…</i> at the top of the library opens a box where you can paste a tune in ABC notation, a plain-text format widely used for folk music. The melody is arranged for the fretboard, and if the tune includes chord symbols the bass and accompaniment are added. Your songs appear under <i>My Songs</i>, are kept on this device only, and can be removed from the list when selected.</p>
@@ -222,7 +228,9 @@
 
     <h3 id="m-practice">Practising</h3>
     <p>The note button in the top bar opens the practice strip under it.</p>
+    <p><b>Tab or notes.</b> The button beside <i>Wait for me</i> switches the strip between tablature and standard notation. Your choice is remembered.</p>
     <p><b>Tablature.</b> The strip shows the melody of the current piece scrolling from right to left past a fixed line. The five lines are the five melody strings in the same order as on screen, with the string nearest you at the bottom. Each circle is a note and the number in it is the fret (0 is the open string); the bar behind it shows how long the note lasts. Chord names run along the top and thin vertical lines mark the bars. Where two notes sound together, the one with the bolder ring is the tune.</p>
+    <p><b>Standard notation.</b> The melody on a treble staff, in the key of the piece (including any transposition), with note heads, stems, dots, ledger lines and accidentals; grace notes are shown small before their note. It is simplified: notes are not beamed together, and short notes have no flags, so read the rhythm from the spacing as well. Fret numbers are only in the tablature.</p>
     <p><b>Who plays.</b></p>
     <ul>
       <li><b>Listen</b> — the app plays everything.</li>
@@ -295,6 +303,8 @@
     <h3 id="m-versions">What's new in each version</h3>
     <p>Your version number is on the start screen, at the top of the song library and of this manual, and at the bottom of Settings.</p>
     <dl class="versions">
+      <dt>1.8</dt>
+      <dd>Standard notation in the practice strip, alongside tablature. Changing the key of any piece. A metronome, with chord patterns starting on its beat. Grace notes, played as a pluck and hammer-on or pull-off.</dd>
       <dt>1.7</dt>
       <dd>The version number on the start screen, in the song library and in the manual. Speed trainer for A–B loops. Search and favourites in the song library. A practice record for each piece. Fixed: playing a piece again in Wait for me no longer skips the notes you had already reached.</dd>
       <dt>1.6</dt>
@@ -326,7 +336,7 @@
     </div>
     <p id="abcMsg" class="import-msg" role="alert"></p>
     <div class="import-row"><button id="abcAdd" class="start-btn small">Add song</button><button id="abcCancel" class="chip">Cancel</button></div>
-    <p class="fine">Understood: note names and octaves, sharps, flats and naturals, note lengths, rests, ties, triplets, dotted pairs (&gt; and &lt;), chords in [brackets], repeats with first and second endings, key and metre changes. Only the first voice of a multi-voice tune is used; lyrics, grace notes and ornaments are ignored. Please add only music you have the right to use.</p>
+    <p class="fine">Understood: note names and octaves, sharps, flats and naturals, note lengths, rests, ties, triplets, dotted pairs (&gt; and &lt;), chords in [brackets], repeats with first and second endings, key and metre changes. Grace notes in {curly brackets} are played as ornaments. Only the first voice of a multi-voice tune is used; lyrics and other ornaments are ignored. Please add only music you have the right to use.</p>
   </div>
 </section>
 
@@ -347,6 +357,7 @@
     <button data-p="together" title="Bass and chord together">Chord</button><button data-p="oompah" class="active" title="Bass, then chord">Oom-pah</button><button data-p="waltz" title="Bass, chord, chord">Waltz</button><button data-p="arp" title="Bass, then the chord strings one by one">Arp</button>
   </div>
   <button id="autoBtn" class="chip toggle" aria-pressed="true" title="Pluck the chord automatically when you choose it. Off: the strings are only highlighted.">Auto-pluck</button>
+  <button id="metroBtn" class="chip toggle" aria-pressed="false" title="Metronome at the chord pattern tempo (B)">Metronome</button>
   <button id="latchBtn" class="chip toggle" aria-pressed="false" title="Keep a chord pattern playing after you let go of its button">Latch</button>
   <button id="dampBtn" class="chip" title="Damp all strings (Esc)">Damp</button>
 </footer>

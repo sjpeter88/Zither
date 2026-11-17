@@ -1,14 +1,14 @@
 // Song playback. Songs are written as a melody in a subset of ABC notation
 // with chord symbols; the bass and accompaniment on the open strings are
 // generated here from those chords, the way a zither player would fill them in.
-import { STRINGS, MELODY_COUNT, chordStrings, placeMelodyNote } from './zither-model.js';
+import { STRINGS, MELODY_COUNT, FRETS, PC_NAMES, chordStrings, placeMelodyNote } from './zither-model.js';
 
 const LETTER = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const SHARP_ORDER = 'FCGDAEB', FLAT_ORDER = 'BEADGCF';
-const KEY_SHARPS = { C: 0, G: 1, D: 2, A: 3, E: 4, B: 5, 'F#': 6, 'C#': 7, F: -1, Bb: -2, Eb: -3, Ab: -4, Db: -5, Gb: -6, Cb: -7 };
+const KEY_SHARPS = { C: 0, G: 1, D: 2, A: 3, E: 4, B: 5, 'F#': 6, 'C#': 7, 'G#': 8, 'D#': 9, 'A#': 10, F: -1, Bb: -2, Eb: -3, Ab: -4, Db: -5, Gb: -6, Cb: -7 };
 const MODE_SHIFT = { '': 0, maj: 0, m: -3, min: -3, dor: -2, mix: -1, lyd: 1, phr: -4 };
 
-function keySignature(key) {
+export function keySignature(key) {
   const m = /^([A-G][#b]?)\s*(maj|min|m|dor|mix|lyd|phr)?/i.exec(key.trim());
   const sig = {};
   if (!m) return sig;
@@ -16,6 +16,18 @@ function keySignature(key) {
   for (let i = 0; i < Math.abs(n); i++) sig[n > 0 ? SHARP_ORDER[i] : FLAT_ORDER[i]] = n > 0 ? 1 : -1;
   return sig;
 }
+
+/** A key such as "G", "Em" or "Bb" moved by some semitones ("A", "F#m", "C"). */
+export function transposeKey(key, shift) {
+  const m = /^([A-G])([#b]?)(.*)$/.exec((key || 'C').trim());
+  if (!m || !shift) return key;
+  const pc = ((LETTER[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + shift) % 12 + 12) % 12;
+  const minor = /^\s*(m|min)\b/i.test(m[3]) || /^m$/i.test(m[3].trim());
+  const names = minor ? ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B'] : ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+  return names[pc] + m[3];
+}
+
+const QUAL_SUFFIX = { maj: '', min: 'm', dom7: '7', min7: 'm7', dim: 'dim' };
 
 function tokenize(src) {
   const s = src.replace(/%.*$/gm, ''), out = [];
@@ -46,7 +58,14 @@ function tokenize(src) {
     }
     if ((m = /^\[(\d)/.exec(rest))) { out.push({ t: 'ending', n: +m[1] }); i += m[0].length; continue; }
     if ((m = /^\((\d)/.exec(rest))) { out.push({ t: 'tuplet', n: +m[1] }); i += m[0].length; continue; }
-    if (c === '{') { i = s.indexOf('}', i) + 1; continue; }
+    if (c === '{') {                    // grace notes: kept and played as a quick ornament
+      i++;
+      const notes = [];
+      while (i < s.length && s[i] !== '}') { const n = note(); if (n) notes.push(n); else i++; }
+      i++;
+      if (notes.length) out.push({ t: 'grace', notes });
+      continue;
+    }
     if (c === '!') { i = s.indexOf('!', i + 1) + 1; continue; }
     if (c === '[') {
       i++;
@@ -104,7 +123,7 @@ function unfold(tokens) {
 export function parseTune(song) {
   const unit = (() => { const m = /(\d+)\/(\d+)/.exec(song.unit || '1/8'); return 4 * m[1] / m[2]; })();
   const tokens = unfold(tokenize(song.abc));
-  let sig = keySignature(song.key || 'C'), barAcc = {}, t = 0, tuplet = 0, tupletMul = 1, broken = 0;
+  let sig = keySignature(song.key || 'C'), barAcc = {}, t = 0, tuplet = 0, tupletMul = 1, broken = 0, grace = null;
   const groups = [], chords = [], bars = [0], meters = [{ t: 0, meter: song.meter || '3/4' }];
   let last = null;
   for (const tk of tokens) {
@@ -115,6 +134,7 @@ export function parseTune(song) {
       continue;
     }
     if (tk.t === 'bar') { barAcc = {}; if (t > bars[bars.length - 1] + 1e-6) bars.push(t); continue; }
+    if (tk.t === 'grace') { grace = tk.notes; continue; }
     if (tk.t === 'tuplet') { tuplet = tk.n; tupletMul = tk.n === 3 ? 2 / 3 : tk.n === 2 ? 3 / 2 : (tk.n - 1) / tk.n; continue; }
     if (tk.t === 'tie') { if (last) last.tie = true; continue; }
     if (tk.t === 'broken') { if (last) { const d = last.dur / 2; if (tk.v === '>') { last.dur += d; t += d; broken = -d; } else { last.dur -= d; t -= d; broken = d; } } continue; }
@@ -124,7 +144,18 @@ export function parseTune(song) {
       let dur = tk.len * unit * longest;
       if (tuplet > 0) { dur *= tupletMul; tuplet--; }
       if (broken) { dur += broken; broken = 0; }
-      if (tk.t === 'rest') { t += dur; last = null; continue; }
+      if (tk.t === 'rest') { t += dur; last = null; grace = null; continue; }
+      const toMidi = (n, keep) => {
+        const up = n.letter.toUpperCase();
+        let midi = 60 + LETTER[up] + (n.letter !== up ? 12 : 0);
+        for (const ch of n.oct) midi += ch === ',' ? -12 : 12;
+        const id = n.letter + n.oct;
+        const acc = n.acc ? (n.acc === '^' ? 1 : n.acc === '^^' ? 2 : n.acc === '_' ? -1 : n.acc === '__' ? -2 : 0) : null;
+        if (acc != null && keep) barAcc[id] = acc;
+        return midi + (acc != null ? acc : id in barAcc ? barAcc[id] : (sig[up] || 0));
+      };
+      const graceMidi = grace ? grace.map((n) => toMidi(n, false)) : null;
+      grace = null;
       const pitches = [];
       for (const n of tk.notes) {
         const up = n.letter.toUpperCase();
@@ -135,7 +166,7 @@ export function parseTune(song) {
         midi += id in barAcc ? barAcc[id] : (sig[up] || 0);
         pitches.push(midi);
       }
-      last = { t, dur, pitches };
+      last = { t, dur, pitches, grace: graceMidi };
       groups.push(last);
       t += dur;
     }
@@ -201,14 +232,16 @@ export function compileSong(song) {
     const busy = new Set();
     const sorted = [...g.pitches].sort((a, b) => b - a);
     const downbeat = Math.abs(g.t - tune.bars[barOf(g.t)]) < 1e-6;
+    const shift = (song.transpose || 0) + (song.keyShift || 0);
     sorted.forEach((midi, k) => {
-      let m = midi + (song.transpose || 0);
+      let m = midi + shift;
       while (m < 48) m += 12;
       const place = placeMelodyNote(m, busy, hand);
       if (!place) return;
       busy.add(place.string);
       if (k === 0 && place.fret > 0) hand += (place.fret - hand) * 0.6;
-      ev.push({ t: g.t, type: 'mel', string: place.string, fret: place.fret, dur: g.dur, top: k === 0, vel: (k === 0 ? 0.8 : 0.62) + (downbeat ? 0.07 : 0) + jitter() * 0.06 });
+      const delta = m - midi;
+      ev.push({ t: g.t, type: 'mel', string: place.string, fret: place.fret, dur: g.dur, top: k === 0, grace: k === 0 && g.grace ? g.grace.map((x) => x + delta) : null, vel: (k === 0 ? 0.8 : 0.62) + (downbeat ? 0.07 : 0) + jitter() * 0.06 });
     });
   }
   // stop each melody note when it ends, unless the same string is plucked again straight away
@@ -230,7 +263,11 @@ export function compileSong(song) {
     for (const [off, role0] of pattern) {
       if (off >= len - 1e-6) continue;
       const t = t0 + off, ch = chordAt(t);
-      const parsed = ch && parseChord(ch.sym);
+      let parsed = ch && parseChord(ch.sym);
+      if (parsed && song.keyShift) {             // transposed piece: move the chord with it
+        const mv = (x) => (((x + song.keyShift) % 12) + 12) % 12, root = mv(parsed.rootPc), bass = parsed.bassPc == null ? null : mv(parsed.bassPc);
+        parsed = { ...parsed, rootPc: root, bassPc: bass, sym: PC_NAMES[root] + (QUAL_SUFFIX[parsed.quality] ?? '') + (bass == null ? '' : '/' + PC_NAMES[bass]) };
+      }
       if (!parsed) { prevSym = null; continue; }
       const cs = chordStrings(parsed.rootPc, parsed.quality, parsed.bassPc);
       let role = role0;
@@ -370,6 +407,9 @@ export class SongPlayer {
     this.visuals.add(id);
   }
 
+  /** The key of the loaded piece after any transposition. */
+  keyName() { return this.song ? transposeKey(this.song.key || 'C', this.song.keyShift || 0) : 'C'; }
+
   /** How many notes the player has to supply in this piece in the current practice mode. */
   gateCount() {
     if (!this.compiled || this.mode === 'listen') return 0;
@@ -447,7 +487,13 @@ export class SongPlayer {
       if (e.type === 'mel') {
         const end = sec(e.t + e.dur), mine = userMelody && e.top;      // the player's own note: shown but not sounded
         if (!mine) {
-          a.pluck(e.string, e.vel, e.fret, time);
+          // a grace note is plucked just before the beat on the same string, then the finger hammers or pulls to the note
+          const gr = e.grace && e.grace.every((gm) => gm - STRINGS[e.string].midi >= 0 && gm - STRINGS[e.string].midi <= FRETS) ? e.grace : null;
+          if (gr) {
+            let tt = Math.max(now + 0.004, time - 0.055 * gr.length);
+            gr.forEach((gm, j) => { const gf = gm - STRINGS[e.string].midi; if (j === 0) a.pluck(e.string, e.vel * 0.9, gf, tt); else a.setFret(e.string, gf, 0.25, tt); tt += 0.055; });
+            a.setFret(e.string, e.fret, 0.3, time);
+          } else a.pluck(e.string, e.vel, e.fret, time);
           if (this.vibrato && end - time > 0.6) a.vibrato(e.string, 0.16 * this.vibDepth, 5.5, 0.25, time);
           if (e.damp) a.damp(e.string, Math.max(time + 0.05, end + 0.03));
         }

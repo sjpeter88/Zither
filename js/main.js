@@ -4,7 +4,7 @@ import { MidiInput } from './midi.js';
 import { ZitherScene } from './scene.js';
 import { ZitherAudio } from './audio.js';
 import { ZitherInput, startTremolo } from './input.js';
-import { SongPlayer, songFromAbc } from './player.js';
+import { SongPlayer, songFromAbc, transposeKey } from './player.js';
 import { Recorder } from './recorder.js';
 import { SONGS, ACCURACY } from './songs.js';
 import { TabStrip } from './tab.js';
@@ -13,7 +13,7 @@ const $ = (id) => document.getElementById(id);
 const host = window.chrome && window.chrome.webview ? window.chrome.webview : null;   // Windows shell
 const params = new URLSearchParams(location.search);
 const KEY = 'concertzither.settings.v1';
-export const APP_VERSION = '1.7.0';
+export const APP_VERSION = '1.8.0';
 
 // ---- settings (remembered between sessions) -------------------------------------
 const settings = Object.assign({
@@ -24,6 +24,7 @@ const settings = Object.assign({
   tremolo: true, tremoloDelay: 320, vibDepth: 1,
   tuning: 'munich', pitch: 440, voice: 'concert', finish: 'sunburst', hands: true, midi: false,
   countIn: false, speedUp: false, favs: [], favOnly: false,
+  notation: 'tab', keyShift: {}, metroBeats: 3,
 }, (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
 setTuning(settings.tuning, settings.pitch);             // before anything places notes or starts the engine
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch (e) { /* private mode */ } };
@@ -175,6 +176,24 @@ function pluckTime(string, vel, time, fret) {
 function pluckAt(string, vel, delay, fret) { pluckTime(string, vel, audio.now + 0.01 + delay, fret); }
 function strumAt(strings, vel, time, spread = 0.014) { strings.forEach((s, k) => pluckTime(s, vel, time + k * spread)); }
 
+// ---- metronome at the chord pattern tempo; chord patterns start on its beat
+const metro = { on: false, start: 0, n: 0, timer: 0 };
+function metroTick() {
+  const spb = 60 / settings.chordBpm, horizon = audio.now + 0.15;
+  for (let t = metro.start + metro.n * spb; t < horizon; t = metro.start + ++metro.n * spb) audio.click(t, metro.n % settings.metroBeats === 0);
+}
+function setMetro(on) {
+  metro.on = on; clearInterval(metro.timer);
+  if (on) { metro.start = audio.now + 0.08; metro.n = 0; metroTick(); metro.timer = setInterval(metroTick, 25); }
+  $('metroBtn').setAttribute('aria-pressed', String(on));
+}
+/** With the metronome on, the next beat (so patterns stay in time with it); otherwise right away. */
+function nextBeat() {
+  const soon = audio.now + 0.02;
+  if (!metro.on) return soon;
+  const spb = 60 / settings.chordBpm;
+  return metro.start + Math.max(0, Math.ceil((soon - metro.start) / spb)) * spb;
+}
 function stopChordLoop() { if (chordLoop) { clearTimeout(chordLoop.timer); chordLoop = null; } }
 
 /** Play one bar of a pattern at audio time t; returns the bar length in seconds. */
@@ -205,7 +224,7 @@ async function pressChord(pc, opts = {}) {
   if (!(await startAudio())) return;
   if (again) { stopChordLoop(); return; }                 // latched: pressing the sounding chord again stops it
   if (!settings.autoPluck && !opts.force) return;
-  const p = opts.pattern || settings.pattern, cs = chordStrings(pc, settings.quality), now = audio.now + 0.02;
+  const p = opts.pattern || settings.pattern, cs = chordStrings(pc, settings.quality), now = nextBeat();
   if (p !== 'chord' && p !== 'alt') player.userPluck(STRINGS[cs.bass].midi, cs.bass);      // counts as your bass note in Wait for me
   if (p === 'bass') { pluckTime(cs.bass, 0.75, now); return; }
   if (p === 'alt') { pluckTime(cs.altBass, 0.7, now); return; }
@@ -231,6 +250,7 @@ autoBtn.addEventListener('click', () => { settings.autoPluck = !settings.autoPlu
 syncAuto();
 function dampAll() { stopChordLoop(); audio.dampAll(); scene.setHints([]); markRoot(null); currentRoot = null; }
 $('dampBtn').addEventListener('click', dampAll);
+$('metroBtn').addEventListener('click', async () => { if (await startAudio()) setMetro(!metro.on); });
 const latchBtn = $('latchBtn');
 const syncLatch = () => latchBtn.setAttribute('aria-pressed', String(settings.latch));
 latchBtn.addEventListener('click', () => { settings.latch = !settings.latch; save(); syncLatch(); if (!settings.latch && !holds.size) stopChordLoop(); toast(settings.latch ? 'Latch on: a chord keeps playing until you press it again, choose another, or press Damp.' : 'Latch off: a chord keeps playing only while you hold its button.'); });
@@ -264,6 +284,7 @@ window.addEventListener('keydown', async (e) => {
   if (k === 'Enter') { e.preventDefault(); togglePlay(); return; }
   if (k === 'Escape') { closePanels(); if (audio.ready) dampAll(); return; }
   if (k === 'm') { setMirror(!settings.mirror); return; }
+  if (k === 'b') { if (await startAudio()) setMetro(!metro.on); return; }
   if (!(await startAudio())) return;
   if (k in MELODY_KEYS) {
     const busy = new Set([...heldKeys.values()].map((v) => v.string));
@@ -358,6 +379,9 @@ function renderList() {
   }
 }
 $('songSearch').addEventListener('input', renderList);
+$('keyDown').addEventListener('click', () => shiftKey(-1));
+$('keyUp').addEventListener('click', () => shiftKey(1));
+$('keyReset').addEventListener('click', () => shiftKey(0));
 function syncFavBtn() { $('favOnlyBtn').setAttribute('aria-pressed', String(settings.favOnly)); }
 $('favOnlyBtn').addEventListener('click', () => { settings.favOnly = !settings.favOnly; save(); syncFavBtn(); renderList(); });
 syncFavBtn();
@@ -375,13 +399,30 @@ function loadSong(i) {
     settings.song = song.id; save(); syncTransport();
     return;
   }
-  try { player.load(song); } catch (e) { console.error(e); toast('Could not load this piece.'); return; }
+  try { player.load({ ...song, keyShift: settings.keyShift[song.id] || 0 }); } catch (e) { console.error(e); toast('Could not load this piece.'); return; }
   player.setTempoScale(settings.tempo / 100);
   $('songTitle').textContent = song.title;
   syncSongSub();
   for (const b of listEl.querySelectorAll('.song')) b.classList.toggle('current', +b.dataset.i === songIndex);
   settings.song = song.id; save();
-  syncTransport();
+  syncTransport(); syncKeyRow();
+}
+
+// ---- moving the current piece to another key
+function syncKeyRow() {
+  const song = SONGS[songIndex], row = $('keyRow');
+  if (!song || song.take) { row.hidden = true; return; }
+  row.hidden = false;
+  const sh = settings.keyShift[song.id] || 0;
+  $('keyName').textContent = sh ? `${song.key} → ${transposeKey(song.key, sh)} (${sh > 0 ? '+' : ''}${sh})` : `${song.key} (original)`;
+  $('keyReset').disabled = !sh;
+}
+function shiftKey(d) {
+  const song = SONGS[songIndex]; if (!song || song.take) return;
+  const sh = d === 0 ? 0 : Math.max(-6, Math.min(6, (settings.keyShift[song.id] || 0) + d));
+  if (sh) settings.keyShift[song.id] = sh; else delete settings.keyShift[song.id];
+  save();
+  const was = player.playing; loadSong(songIndex); if (was) player.play().then(syncTransport);
 }
 function syncSongSub() {
   const song = SONGS[songIndex]; if (!song || song.take) return;
@@ -396,6 +437,7 @@ async function togglePlay() {
   if (songIndex < 0) loadSong(0);
   const cur = SONGS[songIndex];
   if (cur && cur.take) { if (recorder.playing) recorder.stopPlayback(); else { if (!(await startAudio())) return; recorder.play(); } return; }
+  if (!player.playing && metro.on) { setMetro(false); toast('Metronome off while the piece plays.'); }
   if (player.playing) player.pause(); else { if (!(await startAudio())) return; await player.play(settings.countIn); }
   syncTransport();
 }
@@ -503,6 +545,14 @@ function syncPractice() {
   syncSongSub();
   layout();
 }
+function syncNotation() {
+  tab.view = settings.notation;
+  $('notationBtn').setAttribute('aria-pressed', String(settings.notation === 'notes'));
+  $('notationBtn').textContent = settings.notation === 'notes' ? 'Notes' : 'Tab';
+  $('notationBtn').title = settings.notation === 'notes' ? 'Showing standard notation; press for tablature' : 'Showing tablature; press for standard notation';
+}
+$('notationBtn').addEventListener('click', () => { settings.notation = settings.notation === 'notes' ? 'tab' : 'notes'; save(); syncNotation(); });
+syncNotation();
 $('practiceBtn').addEventListener('click', () => { settings.practice = !settings.practice; save(); syncPractice(); });
 $('modeSeg').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
@@ -615,7 +665,7 @@ $('zoomBtn').textContent = ZOOM_LABEL[settings.focus]; $('zoomBtn').classList.to
 {
   const el = $('chordBpm'), out = $('chordBpmOut');
   el.value = settings.chordBpm; out.textContent = settings.chordBpm;
-  el.addEventListener('input', () => { settings.chordBpm = +el.value; out.textContent = el.value; save(); });
+  el.addEventListener('input', () => { settings.chordBpm = +el.value; out.textContent = el.value; save(); if (metro.on) setMetro(true); });
 }
 function slider(id, key, apply) {
   const el = $(id); el.value = Math.round(settings[key] * 100);
@@ -674,6 +724,10 @@ checkbox('tremolo', 'tremolo');
 checkbox('hands', 'hands', (v) => scene.setHands(v));
 checkbox('countIn', 'countIn');
 checkbox('speedUp', 'speedUp');
+{
+  const el = $('metroBeats'); el.value = String(settings.metroBeats);
+  el.addEventListener('change', () => { settings.metroBeats = +el.value; save(); });
+}
 player.onLoop = () => {
   if (!settings.speedUp || settings.tempo >= 100) return;
   settings.tempo = Math.min(100, settings.tempo + 5); save();
