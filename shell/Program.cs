@@ -53,11 +53,26 @@ internal static class Program
             try { File.AppendAllText(Path.Combine(_dataDir, "shell.log"), $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {line}{Environment.NewLine}"); } catch { /* logging is best effort */ }
         }
 
+        /// <summary>Keep the log small: once it passes 256 KB only its newest half is kept.</summary>
+        private void TrimLog()
+        {
+            try
+            {
+                var path = Path.Combine(_dataDir, "shell.log");
+                var info = new FileInfo(path);
+                if (!info.Exists || info.Length < 256 * 1024) return;
+                var lines = File.ReadAllLines(path);
+                File.WriteAllLines(path, lines[(lines.Length / 2)..]);
+            }
+            catch { /* logging is best effort */ }
+        }
+
         private async Task StartAsync()
         {
             try
             {
                 Directory.CreateDirectory(_dataDir);
+                TrimLog();
                 var webDir = ExtractWebApp();
                 // Let the page start sound without a click: this is a local instrument, not a web site.
                 var options = new CoreWebView2EnvironmentOptions("--autoplay-policy=no-user-gesture-required");
@@ -139,8 +154,41 @@ internal static class Program
                 var type = doc.RootElement.TryGetProperty("type", out var t) ? t.GetString() : null;
                 if (type == "audio") Log("audio: " + json);
                 else if (type == "selftest") { Log("selftest: " + json); WriteSelfTest(json); if (_selfTest) BeginInvoke(Close); }
+                else if (type == "save") SaveFile(doc.RootElement);
             }
             catch (JsonException) { /* ignore anything unexpected */ }
+        }
+
+        /// <summary>The page asks to save a file (an exported song list or a rendered take): show the Save dialog.</summary>
+        private void SaveFile(JsonElement m)
+        {
+            var name = m.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+            name = string.Concat(Path.GetFileName(name).Split(Path.GetInvalidFileNameChars()));
+            if (name.Length == 0) name = "concert-zither-file";
+            var ext = Path.GetExtension(name).TrimStart('.').ToLowerInvariant();
+            using var dlg = new SaveFileDialog
+            {
+                FileName = name,
+                Filter = (ext == "wav" ? "WAV audio (*.wav)|*.wav|" : ext == "json" ? "Concert Zither songs (*.json)|*.json|" : "") + "All files (*.*)|*.*",
+                InitialDirectory = Environment.GetFolderPath(ext == "wav" ? Environment.SpecialFolder.MyMusic : Environment.SpecialFolder.MyDocuments),
+                OverwritePrompt = true,
+            };
+            object reply;
+            if (dlg.ShowDialog(this) != DialogResult.OK) reply = new { type = "saved", ok = false };
+            else
+            {
+                try
+                {
+                    var b64 = m.TryGetProperty("data", out var d) ? d.GetString() ?? "" : "";
+                    File.WriteAllBytes(dlg.FileName, Convert.FromBase64String(b64));
+                    reply = new { type = "saved", ok = true, path = dlg.FileName };
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException)
+                {
+                    reply = new { type = "saved", ok = false, error = ex.Message };
+                }
+            }
+            _web.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(reply));
         }
 
         private void WriteSelfTest(string json)
