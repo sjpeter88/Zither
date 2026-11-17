@@ -21,6 +21,7 @@ export class ZitherInput {
     this.opt = options;                 // live settings object: { tapSounds }
     this.pointers = new Map();
     this.onPlay = null;                 // called on any user-made sound
+    this.onPluck = null;                // called with (string, fret) for each note the player plucks
     const o = { passive: false };
     canvas.addEventListener('pointerdown', (e) => this.down(e), o);
     canvas.addEventListener('pointermove', (e) => this.move(e), o);
@@ -62,7 +63,7 @@ export class ZitherInput {
       p.mode = 'fret'; p.string = pk.string; p.fret = pk.fret; p.d0 = pk.d; p.bend = 0; p.xRef = pk.x;
       const f = this.heldFret(pk.string);
       this.scene.setFinger(pk.string, f, 'user');
-      if (p.mouse || this.opt.tapSounds) { this.audio.pluck(pk.string, p.mouse ? 0.85 : 0.72, f); this.scene.flash(pk.string); }
+      if (p.mouse || this.opt.tapSounds) { this.audio.pluck(pk.string, p.mouse ? 0.85 : 0.72, f); this.scene.flash(pk.string); if (this.onPluck) this.onPluck(pk.string, f); }
       else this.audio.setFret(pk.string, f, 0.4);          // silent stop, or a true hammer-on if the string rings
       if (this.onPlay) this.onPlay();
     } else {
@@ -75,6 +76,7 @@ export class ZitherInput {
     const fret = string < MELODY_COUNT ? this.heldFret(string) : undefined;
     this.audio.pluck(string, vel, fret);
     this.scene.flash(string);
+    if (this.onPluck) this.onPluck(string, fret || 0);
     p.lastString = string; p.lastT = performance.now();
     // resting on the string after plucking it turns into a tremolo
     this._stopTremolo(p);

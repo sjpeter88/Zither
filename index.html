@@ -59,6 +59,8 @@
     <button data-view="show" class="chip" title="Showcase view">Show</button>
   </div>
 
+  <button id="practiceBtn" class="icon toggle" title="Practice: tablature, play-along and hands-separate" aria-label="Practice" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg></button>
+
   <button id="zoomBtn" class="chip" title="Zoom in on the fretboard or the open strings (F2)">Zoom: All</button>
 
   <button id="manualBtn" class="chip manual-btn" title="User's manual (F1)" aria-haspopup="dialog" aria-controls="manual">
@@ -69,6 +71,16 @@
     <svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
   </button>
 </header>
+
+<section id="practice" class="panel practice" aria-label="Practice" hidden>
+  <div class="practice-controls">
+    <div class="seg" id="modeSeg" role="group" aria-label="Who plays">
+      <button data-m="listen" title="The app plays melody and accompaniment">Listen</button><button data-m="melody" title="You play the melody; the app accompanies">I play melody</button><button data-m="chords" title="You play bass and chords; the app plays the melody">I play chords</button>
+    </div>
+    <button id="waitBtn" class="chip toggle" aria-pressed="false" title="The song waits at each melody note until you pluck it">Wait for me</button>
+  </div>
+  <canvas id="tab" aria-label="Scrolling tablature of the melody"></canvas>
+</section>
 
 <aside id="library" class="drawer panel" role="dialog" aria-label="Song library" hidden>
   <div class="drawer-head"><h2>Song library</h2><button class="icon close" data-close="library" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
@@ -99,7 +111,7 @@
   <div class="drawer-head sticky"><h2>User's Manual</h2><button class="icon close" data-close="manual" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="manual-body">
     <nav class="toc" aria-label="Contents">
-      <a href="#m-start">Getting started</a><a href="#m-instrument">The instrument</a><a href="#m-touch">Playing by touch</a><a href="#m-mouse">Playing with a mouse</a><a href="#m-chords">Chords</a><a href="#m-keys">Keyboard</a><a href="#m-songs">Song library</a><a href="#m-views">Views</a><a href="#m-settings">Settings</a><a href="#m-install">iPad and Windows</a><a href="#m-trouble">If something is wrong</a>
+      <a href="#m-start">Getting started</a><a href="#m-instrument">The instrument</a><a href="#m-touch">Playing by touch</a><a href="#m-mouse">Playing with a mouse</a><a href="#m-chords">Chords</a><a href="#m-keys">Keyboard</a><a href="#m-songs">Song library</a><a href="#m-practice">Practising</a><a href="#m-views">Views</a><a href="#m-settings">Settings</a><a href="#m-install">iPad and Windows</a><a href="#m-trouble">If something is wrong</a>
     </nav>
 
     <h3 id="m-start">Getting started</h3>
@@ -179,6 +191,17 @@
       <li><b>Tempo:</b> the slider beside the metronome icon slows a piece to 60% or speeds it up to 130%.</li>
     </ul>
     <p>All pieces are public-domain compositions in arrangements made for this instrument. Each carries a label saying how its notes were obtained: <b>From score</b> (transcribed from a public-domain edition), <b>Read from scan</b> (read by eye from a scanned score, so small misreadings are possible) or <b>From memory</b> (approximate, not checked against a score). The selected piece also shows its source.</p>
+
+    <h3 id="m-practice">Practising</h3>
+    <p>The note button in the top bar opens the practice strip under it.</p>
+    <p><b>Tablature.</b> The strip shows the melody of the current piece scrolling from right to left past a fixed line. The five lines are the five melody strings in the same order as on screen, with the string nearest you at the bottom. Each circle is a note and the number in it is the fret (0 is the open string); the bar behind it shows how long the note lasts. Chord names run along the top and thin vertical lines mark the bars. Where two notes sound together, the one with the bolder ring is the tune.</p>
+    <p><b>Who plays.</b></p>
+    <ul>
+      <li><b>Listen</b> — the app plays everything.</li>
+      <li><b>I play melody</b> — the app plays the bass and chords and leaves the tune to you. It still shows each note on the fretboard, and still plays the lower harmony notes under the tune.</li>
+      <li><b>I play chords</b> — the app plays the melody and leaves the open strings to you. The strings of each chord light up when it is due, and the chord bar shows its name.</li>
+    </ul>
+    <p><b>Wait for me</b> (with <i>I play melody</i>) makes the song stop at every melody note until you pluck it. The note is shown on the fretboard a moment early, the string glows while the song is waiting, and the strip says <i>your turn</i>. Any way of sounding the right pitch counts: the lit fret, the same note on another string, or a melody key. Wrong notes are simply ignored, so you can take as long as you need. Without <i>Wait for me</i> the song keeps its own tempo; use the tempo slider to slow it down.</p>
 
     <h3 id="m-views">Views</h3>
     <ul>

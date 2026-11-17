@@ -5,6 +5,7 @@ import { ZitherAudio } from './audio.js';
 import { ZitherInput, startTremolo } from './input.js';
 import { SongPlayer } from './player.js';
 import { SONGS, ACCURACY } from './songs.js';
+import { TabStrip } from './tab.js';
 
 const $ = (id) => document.getElementById(id);
 const host = window.chrome && window.chrome.webview ? window.chrome.webview : null;   // Windows shell
@@ -16,6 +17,7 @@ const settings = Object.assign({
   mirror: false, labels: true, tapSounds: true, autoPluck: true, volume: 0.8, reverb: 0.22, resonance: 0.5,
   quality: 'maj', pattern: 'oompah', view: 'play', tempo: 100, song: null,
   focus: 'all', latch: false, chordBpm: 108, vibrato: true,
+  practice: false, mode: 'listen', wait: false,
 }, (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch (e) { /* private mode */ } };
 
@@ -32,6 +34,9 @@ Object.assign(audio.settings, { volume: settings.volume, reverb: settings.reverb
 const input = new ZitherInput(canvas, scene, audio, settings);
 const player = new SongPlayer(audio, scene);
 audio.onLevels = (lv) => scene.setLevels(lv);
+const tab = new TabStrip($('tab'), player);
+input.onPluck = (string, fret) => player.userPluck(STRINGS[string].midi + fret);
+player.mode = settings.mode; player.wait = settings.wait;
 
 scene.setMirror(settings.mirror);
 scene.setLabels(settings.labels);
@@ -40,8 +45,9 @@ scene.setFocus(settings.focus, true);
 player.vibrato = settings.vibrato;
 
 function layout() {
-  const top = $('topbar').getBoundingClientRect(), bottom = $('chordbar').getBoundingClientRect();
+  const top = ($('practice').hidden ? $('topbar') : $('practice')).getBoundingClientRect(), bottom = $('chordbar').getBoundingClientRect();
   scene.setInsets(top.bottom + 6, window.innerHeight - bottom.top + 6);
+  tab.resize();
 }
 window.addEventListener('resize', layout);
 window.addEventListener('orientationchange', () => setTimeout(layout, 250));
@@ -52,6 +58,7 @@ let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   scene.update(dt);
+  if (!$('practice').hidden) tab.draw();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -226,6 +233,7 @@ window.addEventListener('keydown', async (e) => {
     const busy = new Set([...heldKeys.values()].map((v) => v.string));
     const place = placeMelodyNote(MELODY_KEYS[k] + 12, busy, 7);
     if (place) {
+      player.userPluck(STRINGS[place.string].midi + place.fret);
       heldKeys.set(k, place); audio.pluck(place.string, 0.82, place.fret); scene.setFinger(place.string, place.fret, 'user'); scene.flash(place.string);
       if (e.shiftKey) place.stop = startTremolo(audio, scene, place.string, () => place.fret);     // Shift: tremolo while held
       else if (settings.vibrato) audio.vibrato(place.string, 0.16, 5.5, 0.35);
@@ -275,10 +283,15 @@ function loadSong(i) {
   try { player.load(song); } catch (e) { console.error(e); toast('Could not load this piece.'); return; }
   player.setTempoScale(settings.tempo / 100);
   $('songTitle').textContent = song.title;
-  $('songSub').textContent = `${song.composer} · ${ACCURACY[song.accuracy].label.toLowerCase()}`;
+  syncSongSub();
   for (const b of listEl.querySelectorAll('.song')) b.classList.toggle('current', +b.dataset.i === songIndex);
   settings.song = song.id; save();
   syncTransport();
+}
+function syncSongSub() {
+  const song = SONGS[songIndex]; if (!song) return;
+  const mode = { listen: '', melody: settings.wait ? ' · waits for your melody' : ' · you play the melody', chords: ' · you play the chords' }[settings.mode];
+  $('songSub').textContent = `${song.composer} · ${ACCURACY[song.accuracy].label.toLowerCase()}${mode}`;
 }
 function syncTransport() {
   $('playIcon').setAttribute('d', player.playing ? 'M7 5h3.5v14H7zM13.5 5H17v14h-3.5z' : 'M7 4l13 8-13 8z');
@@ -311,6 +324,28 @@ tempo.value = settings.tempo; $('tempoOut').textContent = settings.tempo + '%';
 tempo.addEventListener('input', () => { settings.tempo = +tempo.value; $('tempoOut').textContent = settings.tempo + '%'; player.setTempoScale(settings.tempo / 100); save(); });
 
 // ---- panels and settings ---------------------------------------------------------------------------
+// ---- practice strip: tablature, who plays what, wait-for-me
+function syncPractice() {
+  $('practice').hidden = !settings.practice;
+  $('practiceBtn').setAttribute('aria-pressed', String(settings.practice));
+  for (const b of $('modeSeg').children) b.classList.toggle('active', b.dataset.m === settings.mode);
+  $('waitBtn').setAttribute('aria-pressed', String(settings.wait && settings.mode === 'melody'));
+  $('waitBtn').disabled = settings.mode !== 'melody';
+  player.mode = settings.mode; player.wait = settings.wait && settings.mode === 'melody';
+  syncSongSub();
+  layout();
+}
+$('practiceBtn').addEventListener('click', () => { settings.practice = !settings.practice; save(); syncPractice(); });
+$('modeSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  settings.mode = b.dataset.m; save(); syncPractice();
+  toast({ listen: 'The app plays everything.', melody: 'You play the melody (the notes with the bold ring); the app plays the accompaniment.', chords: 'You play the bass and chords on the lit strings; the app plays the melody.' }[settings.mode]);
+});
+$('waitBtn').addEventListener('click', () => {
+  settings.wait = !settings.wait; save(); syncPractice();
+  toast(settings.wait ? 'Wait for me: the song stops at each melody note until you pluck it.' : 'The song keeps its own tempo.');
+});
+
 function closePanels() { $('library').hidden = true; $('settings').hidden = true; $('manual').hidden = true; }
 function togglePanel(id) { const el = $(id), open = el.hidden; closePanels(); el.hidden = !open; }
 $('songBtn').addEventListener('click', () => togglePanel('library'));
@@ -361,6 +396,8 @@ checkbox('mirror', 'mirror', (v) => scene.setMirror(v));
 checkbox('labels', 'labels', (v) => scene.setLabels(v));
 checkbox('tapSounds', 'tapSounds');
 checkbox('vibrato', 'vibrato', (v) => { player.vibrato = v; });
+
+syncPractice();
 
 // restore the last piece (without playing it)
 {

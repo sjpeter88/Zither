@@ -192,7 +192,7 @@ export function compileSong(song) {
       if (!place) return;
       busy.add(place.string);
       if (k === 0 && place.fret > 0) hand += (place.fret - hand) * 0.6;
-      ev.push({ t: g.t, type: 'mel', string: place.string, fret: place.fret, dur: g.dur, vel: (k === 0 ? 0.8 : 0.62) + (downbeat ? 0.07 : 0) + jitter() * 0.06 });
+      ev.push({ t: g.t, type: 'mel', string: place.string, fret: place.fret, dur: g.dur, top: k === 0, vel: (k === 0 ? 0.8 : 0.62) + (downbeat ? 0.07 : 0) + jitter() * 0.06 });
     });
   }
   // stop each melody note when it ends, unless the same string is plucked again straight away
@@ -239,7 +239,7 @@ export function compileSong(song) {
     }
   }
   ev.sort((a, b) => a.t - b.t || (a.type === 'damp' ? -1 : 0) - (b.type === 'damp' ? -1 : 0));
-  return { events: ev, beats: tune.beats, bars: tune.bars.length - 1, notes: tune.groups.length };
+  return { events: ev, beats: tune.beats, bars: tune.bars.length - 1, barTimes: tune.bars, notes: tune.groups.length };
 }
 
 export class SongPlayer {
@@ -248,6 +248,9 @@ export class SongPlayer {
     this.song = null; this.compiled = null;
     this.playing = false; this.pos = 0;         // seconds of song time at the song's own tempo
     this.scale = 1; this.loop = false; this.vibrato = true;
+    // practice: who plays what, and whether the song waits for the player's melody notes
+    this.mode = 'listen';             // 'listen' | 'melody' (you play the melody) | 'chords' (you play the chords)
+    this.wait = false; this.gate = null; this.gateDone = -1; this.waiting = false;
     this.next = 0; this.timer = null; this.visuals = new Set();
     this.onProgress = null; this.onEnd = null; this.onChord = null; this.onState = null;
   }
@@ -315,6 +318,7 @@ export class SongPlayer {
     const ev = this.compiled.events, beat = this.pos / this.spb;
     let i = 0; while (i < ev.length && ev[i].t < beat - 1e-6) i++;
     this.next = i; this.minTime = from || 0;
+    this.gate = null; this.gateDone = i - 1; this.waiting = false;
   }
 
   _clear(keepFingers) {
@@ -330,26 +334,70 @@ export class SongPlayer {
     this.visuals.add(id);
   }
 
+  /** Position in beats right now. */
+  beat() {
+    if (this.waiting && this.gate) return this.gate.t;          // held at the note being waited for
+    return (this.playing ? Math.max(0, (this.audio.now - this.anchor) * this.scale) : this.pos) / this.spb;
+  }
+
+  /** The player plucked a note (MIDI pitch). In wait mode the right note moves the song on. */
+  userPluck(midi) {
+    const g = this.gate;
+    if (!g || !this.playing) return false;
+    const now = this.audio.now, tg = this.anchor + g.t * this.spb / this.scale;
+    if (midi !== g.midi || now < tg - 0.45) return false;
+    if (now > tg) this.anchor = now - g.t * this.spb / this.scale;
+    this.gateDone = g.i; this.gate = null; this.waiting = false;
+    this._tick();
+    return true;
+  }
+
   _tick() {
     if (!this.playing) return;
     const a = this.audio, sc = this.scene, ev = this.compiled.events, now = a.now, horizon = now + 0.15;
     const sec = (beats) => this.anchor + beats * this.spb / this.scale;
-    while (this.next < ev.length && sec(ev[this.next].t) < horizon) {
+    const userMelody = this.mode === 'melody', userChords = this.mode === 'chords';
+    let limit = Infinity;
+    if (userMelody && this.wait) {
+      // the gate is the next melody note the player has to pluck; nothing at or after it is played until then
+      if (!this.gate) {
+        let i = Math.max(this.next, this.gateDone + 1);
+        while (i < ev.length && !(ev[i].type === 'mel' && ev[i].top)) i++;
+        if (i < ev.length) {
+          const e = ev[i];
+          this.gate = { i, t: e.t, e, midi: STRINGS[e.string].midi + e.fret };
+          this._later(Math.max(now, sec(e.t) - 1.2), () => sc.setFinger(e.string, e.fret, 'song'));     // show it a little ahead
+        }
+      }
+      const g = this.gate;
+      if (g) {
+        limit = g.t;
+        const tg = sec(g.t);
+        if (now >= tg) {                         // the note is due: hold the song here
+          this.anchor += now - tg; this.waiting = true;
+          sc.setFinger(g.e.string, g.e.fret, 'song'); sc.flash(g.e.string, 0.45);
+        }
+      }
+    } else { this.gate = null; this.waiting = false; }
+
+    while (this.next < ev.length && ev[this.next].t < limit - 1e-9 && sec(ev[this.next].t) < horizon) {
       const e = ev[this.next++];
       let time = Math.max(sec(e.t), now + 0.005);
       if (e.type === 'mel') {
-        const end = sec(e.t + e.dur);
-        a.pluck(e.string, e.vel, e.fret, time);
-        if (this.vibrato && end - time > 0.6) a.vibrato(e.string, 0.16, 5.5, 0.25, time);
-        if (e.damp) a.damp(e.string, Math.max(time + 0.05, end + 0.03));
+        const end = sec(e.t + e.dur), mine = userMelody && e.top;      // the player's own note: shown but not sounded
+        if (!mine) {
+          a.pluck(e.string, e.vel, e.fret, time);
+          if (this.vibrato && end - time > 0.6) a.vibrato(e.string, 0.16, 5.5, 0.25, time);
+          if (e.damp) a.damp(e.string, Math.max(time + 0.05, end + 0.03));
+        }
         this._later(time, () => { sc.setFinger(e.string, e.fret, 'song'); sc.flash(e.string, 0.9); });
-        this._later(end - 0.02, () => { if (sc.markers[e.string].song.fret === e.fret) sc.setFinger(e.string, 0, 'song'); });
+        this._later(end - 0.02, () => { if (sc.markers[e.string].song.fret === e.fret && !(this.gate && this.gate.e.string === e.string)) sc.setFinger(e.string, 0, 'song'); });
       } else if (e.type === 'open') {
         time += (e.roll || 0) * 0.013;                    // roll chords slightly, low string first
-        a.pluck(e.string, e.vel, undefined, time);
+        if (!userChords) a.pluck(e.string, e.vel, undefined, time);
         this._later(time, () => sc.flash(e.string, 0.8));
       } else if (e.type === 'damp') {
-        a.damp(e.string, time);
+        if (!userChords) a.damp(e.string, time);
       } else if (e.type === 'chord') {
         this._later(time, () => {
           sc.setHints([...e.strings.acc.map((s) => [s, 0]), [e.strings.bass, 1]]);
