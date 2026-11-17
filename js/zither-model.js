@@ -9,6 +9,8 @@ export const FRETS = 29;
 export let A4 = 440;
 
 export const PC_NAMES = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'B♭', 'B'];
+/** Pitch class of each natural note letter. */
+export const LETTER_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
 export function midiToFreq(m) { return A4 * Math.pow(2, (m - 69) / 12); }
 export function midiName(m) { return PC_NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1); }
@@ -22,7 +24,6 @@ export const TUNINGS = {
   munich: { label: 'Munich — a′ a′ d′ g c', melody: [69, 69, 62, 55, 48] },
   vienna: { label: 'Viennese fretboard — a′ d′ g′ g c', melody: [69, 62, 67, 55, 48] },
 };
-export let tuningName = 'munich';
 
 // Sound presets for the strings and soundbox.
 export const VOICES = {
@@ -115,7 +116,6 @@ export const GROUP_START = { melody: 0, acc: 5, bass: 17, contra: 29 };
 /** Change the fretboard tuning and the concert pitch (A4 in Hz). Returns every string's new frequency. */
 export function setTuning(name, pitch = A4) {
   const t = TUNINGS[name] || TUNINGS.munich;
-  tuningName = TUNINGS[name] ? name : 'munich';
   A4 = Math.max(415, Math.min(466, +pitch || 440));
   t.melody.forEach((m, i) => { STRINGS[i].midi = m; STRINGS[i].name = PC_NAMES[m % 12]; });
   for (const s of STRINGS) s.freq = midiToFreq(s.midi);
@@ -143,11 +143,11 @@ export function engineConfig() {
 // always "root, next string, four strings on" (C: C-G-E), wherever you start.
 export const CHORD_ROOTS = ACCOMP.map((m) => m % 12);    // pitch classes in string order
 export const QUALITIES = {
-  maj: { label: 'Major', suffix: '', tones: [0, 7, 4] },
-  min: { label: 'Minor', suffix: 'm', tones: [0, 7, 3] },
-  dom7: { label: '7th', suffix: '7', tones: [0, 4, 7, 10] },
-  dim: { label: 'dim', suffix: '°', tones: [0, 3, 6] },
-  min7: { label: 'm7', suffix: 'm7', tones: [0, 3, 7, 10] },
+  maj: { suffix: '', tones: [0, 7, 4] },
+  min: { suffix: 'm', tones: [0, 7, 3] },
+  dom7: { suffix: '7', tones: [0, 4, 7, 10] },
+  dim: { suffix: 'dim', tones: [0, 3, 6] },
+  min7: { suffix: 'm7', tones: [0, 3, 7, 10] },
 };
 
 function findPc(group, pc, count) {
@@ -173,8 +173,9 @@ export function chordStrings(rootPc, quality = 'maj', bassPc = null) {
   };
 }
 
-export function chordName(rootPc, quality) {
-  return PC_NAMES[rootPc] + (QUALITIES[quality] ? QUALITIES[quality].suffix : '');
+/** Display name of a chord: "G7", "Am", "C/G". */
+export function chordName(rootPc, quality, bassPc = null) {
+  return PC_NAMES[rootPc] + (QUALITIES[quality] ? QUALITIES[quality].suffix : '') + (bassPc == null ? '' : '/' + PC_NAMES[bassPc]);
 }
 
 /** Choose a melody string and fret for a pitch. `busy` is a set of string

@@ -1,11 +1,10 @@
 // Main-thread side of the audio: creates the context on the first user
 // gesture, loads the string engine worklet and adds a little room around it.
-import { engineConfig, N_STRINGS } from './zither-model.js';
+import { engineConfig } from './zither-model.js';
 
 export class ZitherAudio {
   constructor() {
     this.ctx = null; this.node = null; this.ready = false; this.starting = null;
-    this.levels = new Float32Array(N_STRINGS);
     this.onLevels = null; this.onState = null;
     this.reports = 0; this.peak = 0; this.blocks = 0;
     this.settings = { volume: 0.8, reverb: 0.22, resonance: 0.5 };
@@ -35,7 +34,7 @@ export class ZitherAudio {
     node.port.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'lv') {
-        this.levels = m.lv; this.reports++; this.blocks = m.blocks;
+        this.reports++; this.blocks = m.blocks;
         if (m.top > this.peak) this.peak = m.top;
         if (this.onLevels) this.onLevels(m.lv);
       }

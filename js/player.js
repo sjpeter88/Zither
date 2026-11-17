@@ -1,9 +1,8 @@
 // Song playback. Songs are written as a melody in a subset of ABC notation
 // with chord symbols; the bass and accompaniment on the open strings are
 // generated here from those chords, the way a zither player would fill them in.
-import { STRINGS, MELODY_COUNT, FRETS, PC_NAMES, chordStrings, placeMelodyNote } from './zither-model.js';
+import { STRINGS, MELODY_COUNT, FRETS, LETTER_PC as LETTER, chordStrings, chordName, placeMelodyNote } from './zither-model.js';
 
-const LETTER = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const SHARP_ORDER = 'FCGDAEB', FLAT_ORDER = 'BEADGCF';
 const KEY_SHARPS = { C: 0, G: 1, D: 2, A: 3, E: 4, B: 5, 'F#': 6, 'C#': 7, 'G#': 8, 'D#': 9, 'A#': 10, F: -1, Bb: -2, Eb: -3, Ab: -4, Db: -5, Gb: -6, Cb: -7 };
 const MODE_SHIFT = { '': 0, maj: 0, m: -3, min: -3, dor: -2, mix: -1, lyd: 1, phr: -4 };
@@ -27,8 +26,6 @@ export function transposeKey(key, shift) {
   return names[pc] + m[3];
 }
 
-const QUAL_SUFFIX = { maj: '', min: 'm', dom7: '7', min7: 'm7', dim: 'dim' };
-
 function tokenize(src) {
   const s = src.replace(/%.*$/gm, ''), out = [];
   let i = 0;
@@ -49,7 +46,11 @@ function tokenize(src) {
     const c = s[i], rest = s.slice(i);
     let m;
     if (/\s/.test(c) || c === '\\') { i++; continue; }
-    if (c === '"') { const j = s.indexOf('"', i + 1); out.push({ t: 'sym', v: s.slice(i + 1, j) }); i = j + 1; continue; }
+    if (c === '"') {                     // chord symbol; an unclosed quote is skipped as a single character
+      const j = s.indexOf('"', i + 1);
+      if (j < 0) { i++; continue; }
+      out.push({ t: 'sym', v: s.slice(i + 1, j) }); i = j + 1; continue;
+    }
     if ((m = /^\[([KMLQ]):([^\]]*)\]/.exec(rest))) { out.push({ t: 'field', k: m[1], v: m[2].trim() }); i += m[0].length; continue; }
     if ((m = /^(\|\]|\|\||\[\||\|:|:\|\]|:\||::|\|)\s*(\d)?/.exec(rest))) {
       out.push({ t: 'bar', v: m[1] });
@@ -66,7 +67,10 @@ function tokenize(src) {
       if (notes.length) out.push({ t: 'grace', notes });
       continue;
     }
-    if (c === '!') { i = s.indexOf('!', i + 1) + 1; continue; }
+    if (c === '!') {                     // decoration such as !trill!; an unclosed one is skipped as a single character
+      const j = s.indexOf('!', i + 1);
+      i = j < 0 ? i + 1 : j + 1; continue;
+    }
     if (c === '[') {
       i++;
       const notes = [];
@@ -126,6 +130,16 @@ export function parseTune(song) {
   let sig = keySignature(song.key || 'C'), barAcc = {}, t = 0, tuplet = 0, tupletMul = 1, broken = 0, grace = null;
   const groups = [], chords = [], bars = [0], meters = [{ t: 0, meter: song.meter || '3/4' }];
   let last = null;
+  // pitch of a written note; accidentals last to the end of the bar (keep = remember this note's own accidental)
+  const toMidi = (n, keep) => {
+    const up = n.letter.toUpperCase();
+    let midi = 60 + LETTER[up] + (n.letter !== up ? 12 : 0);
+    for (const ch of n.oct) midi += ch === ',' ? -12 : 12;
+    const id = n.letter + n.oct;
+    const acc = n.acc ? (n.acc === '^' ? 1 : n.acc === '^^' ? 2 : n.acc === '_' ? -1 : n.acc === '__' ? -2 : 0) : null;
+    if (acc != null && keep) barAcc[id] = acc;
+    return midi + (acc != null ? acc : id in barAcc ? barAcc[id] : (sig[up] || 0));
+  };
   for (const tk of tokens) {
     if (tk.t === 'sym') { chords.push({ t, sym: tk.v }); continue; }
     if (tk.t === 'field') {
@@ -145,27 +159,9 @@ export function parseTune(song) {
       if (tuplet > 0) { dur *= tupletMul; tuplet--; }
       if (broken) { dur += broken; broken = 0; }
       if (tk.t === 'rest') { t += dur; last = null; grace = null; continue; }
-      const toMidi = (n, keep) => {
-        const up = n.letter.toUpperCase();
-        let midi = 60 + LETTER[up] + (n.letter !== up ? 12 : 0);
-        for (const ch of n.oct) midi += ch === ',' ? -12 : 12;
-        const id = n.letter + n.oct;
-        const acc = n.acc ? (n.acc === '^' ? 1 : n.acc === '^^' ? 2 : n.acc === '_' ? -1 : n.acc === '__' ? -2 : 0) : null;
-        if (acc != null && keep) barAcc[id] = acc;
-        return midi + (acc != null ? acc : id in barAcc ? barAcc[id] : (sig[up] || 0));
-      };
       const graceMidi = grace ? grace.map((n) => toMidi(n, false)) : null;
       grace = null;
-      const pitches = [];
-      for (const n of tk.notes) {
-        const up = n.letter.toUpperCase();
-        let midi = 60 + LETTER[up] + (n.letter !== up ? 12 : 0);
-        for (const ch of n.oct) midi += ch === ',' ? -12 : 12;
-        const id = n.letter + n.oct;
-        if (n.acc) barAcc[id] = n.acc === '^' ? 1 : n.acc === '^^' ? 2 : n.acc === '_' ? -1 : n.acc === '__' ? -2 : 0;
-        midi += id in barAcc ? barAcc[id] : (sig[up] || 0);
-        pitches.push(midi);
-      }
+      const pitches = tk.notes.map((n) => toMidi(n, true));
       last = { t, dur, pitches, grace: graceMidi };
       groups.push(last);
       t += dur;
@@ -225,6 +221,7 @@ export function compileSong(song) {
   const ev = [];
   // --- melody on the fretboard
   let hand = 5, seed = 1;
+  const topNote = Math.max(...STRINGS.slice(0, MELODY_COUNT).map((s) => s.midi)) + FRETS;
   const jitter = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5);
   const [mn, md] = (song.meter || '3/4').split('/').map(Number), barBeats = mn * 4 / md;
   const barOf = (t) => { let b = 0; while (b + 1 < tune.bars.length && tune.bars[b + 1] <= t + 1e-6) b++; return b; };
@@ -236,7 +233,8 @@ export function compileSong(song) {
     sorted.forEach((midi, k) => {
       let m = midi + shift;
       while (m < 48) m += 12;
-      const place = placeMelodyNote(m, busy, hand);
+      let place = placeMelodyNote(m, busy, hand);
+      while (!place && m > topNote) { m -= 12; place = placeMelodyNote(m, busy, hand); }     // above the top fret: an octave down, as MIDI input does
       if (!place) return;
       busy.add(place.string);
       if (k === 0 && place.fret > 0) hand += (place.fret - hand) * 0.6;
@@ -266,7 +264,7 @@ export function compileSong(song) {
       let parsed = ch && parseChord(ch.sym);
       if (parsed && song.keyShift) {             // transposed piece: move the chord with it
         const mv = (x) => (((x + song.keyShift) % 12) + 12) % 12, root = mv(parsed.rootPc), bass = parsed.bassPc == null ? null : mv(parsed.bassPc);
-        parsed = { ...parsed, rootPc: root, bassPc: bass, sym: PC_NAMES[root] + (QUAL_SUFFIX[parsed.quality] ?? '') + (bass == null ? '' : '/' + PC_NAMES[bass]) };
+        parsed = { ...parsed, rootPc: root, bassPc: bass, sym: chordName(root, parsed.quality, bass) };
       }
       if (!parsed) { prevSym = null; continue; }
       const cs = chordStrings(parsed.rootPc, parsed.quality, parsed.bassPc);
@@ -307,7 +305,7 @@ export class SongPlayer {
     this.mode = 'listen';             // 'listen' | 'melody' (you play the melody) | 'chords' (you play the chords)
     this.wait = false; this.gate = null; this.gateDone = -1; this.waiting = false;
     this.next = 0; this.timer = null; this.visuals = new Set(); this.runId = 0;
-    this.onProgress = null; this.onEnd = null; this.onChord = null; this.onState = null;
+    this.onProgress = null; this.onEnd = null; this.onFinish = null; this.onChord = null; this.onState = null; this.onLoop = null;
   }
 
   load(song) {
@@ -383,14 +381,14 @@ export class SongPlayer {
   }
 
   setTempoScale(scale) {
-    if (this.playing) { const p = (this.audio.now - this.anchor) * this.scale; this.scale = scale; this.anchor = this.audio.now - p / scale; this._clear(true); this.pos = p; this._rewind(this.audio.now + 0.03); }
+    if (this.playing) { const p = (this.audio.now - this.anchor) * this.scale; this.scale = scale; this.anchor = this.audio.now - p / scale; this._clear(true); this.pos = p; this._rewind(); }
     else this.scale = scale;
   }
 
-  _rewind(from) {
+  _rewind() {
     const ev = this.compiled.events, beat = this.pos / this.spb;
     let i = 0; while (i < ev.length && ev[i].t < beat - 1e-6) i++;
-    this.next = i; this.minTime = from || 0;
+    this.next = i;
     this.gate = null; this.gateDone = i - 1; this.waiting = false; this.runId++;
   }
 
@@ -413,9 +411,11 @@ export class SongPlayer {
   /** How many notes the player has to supply in this piece in the current practice mode. */
   gateCount() {
     if (!this.compiled || this.mode === 'listen') return 0;
-    const isGate = this.mode === 'melody' ? (e) => e.type === 'mel' && e.top : (e) => e.type === 'open' && e.bass;
-    return this.compiled.events.filter(isGate).length;
+    return this.compiled.events.filter(this._isGate()).length;
   }
+
+  /** Which events the player has to supply: the top melody notes, or the bass notes of the chords. */
+  _isGate() { return this.mode === 'melody' ? (e) => e.type === 'mel' && e.top : (e) => e.type === 'open' && e.bass; }
   resetStats() { this.stats = { hit: 0, wrong: 0, waitSum: 0 }; }
 
   /** Position in beats right now. */
@@ -449,7 +449,7 @@ export class SongPlayer {
     if ((userMelody || userChords) && this.wait) {
       // the gate is the next note the player has to pluck; nothing at or after it is played until then
       if (!this.gate) {
-        const isGate = userMelody ? (e) => e.type === 'mel' && e.top : (e) => e.type === 'open' && e.bass;
+        const isGate = this._isGate();
         let i = Math.max(this.next, this.gateDone + 1);
         while (i < ev.length && !isGate(ev[i])) i++;
         if (i < ev.length) {
@@ -473,7 +473,7 @@ export class SongPlayer {
             const c = ev[j];
             if (c.type !== 'chord' || c.shown === this.runId) continue;
             c.shown = this.runId;
-            sc.setHints([...c.strings.acc.map((x) => [x, 0]), [c.strings.bass, 1]]);
+            sc.showChord(c.strings);
             if (this.onChord) this.onChord(c.chord);
           }
         }
@@ -509,7 +509,7 @@ export class SongPlayer {
         if (e.shown === this.runId) continue;             // already lit while waiting at the gate
         e.shown = this.runId;
         this._later(time, () => {
-          sc.setHints([...e.strings.acc.map((s) => [s, 0]), [e.strings.bass, 1]]);
+          sc.showChord(e.strings);
           if (this.onChord) this.onChord(e.chord);
         });
       }
@@ -521,6 +521,7 @@ export class SongPlayer {
       this.playing = false; clearInterval(this.timer);
       this.pos = this.duration;
       sc.setHints([]); if (this.onChord) this.onChord(null);
+      if (this.onFinish) this.onFinish();          // a full run of the piece, whether or not it repeats
       if (this.loop) { this.pos = 0; this._rewind(); this.play(); }
       else { if (this.onState) this.onState(); if (this.onEnd) this.onEnd(); }
     }

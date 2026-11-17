@@ -1,10 +1,10 @@
 // Scrolling tablature for the melody: five lines for the five melody strings
 // (in the same order as on screen), fret numbers at each note, chord symbols
 // above, and a fixed playhead the music scrolls past.
-import { STRINGS, MELODY_COUNT, stringLabel } from './zither-model.js';
+import { STRINGS, MELODY_COUNT, LETTER_PC, stringLabel } from './zither-model.js';
 import { keySignature } from './player.js';
 
-const LETTERS = 'CDEFGAB', NAT = [0, 2, 4, 5, 7, 9, 11];
+const LETTERS = Object.keys(LETTER_PC).join(''), NAT = Object.values(LETTER_PC);
 const BLACK_IN_C = { 1: ['C', 1], 3: ['E', -1], 6: ['F', 1], 8: ['G', 1], 10: ['B', -1] };
 
 /** Spell a MIDI pitch in a key: [letter index 0-6, alteration, diatonic step from C0]. */
@@ -95,16 +95,10 @@ export class TabStrip {
       const x = Math.round(X(b)) + 0.5;
       c.beginPath(); c.moveTo(x, top - 3); c.lineTo(x, h - 6); c.stroke();
     }
+    this._chordNames(t0, t1, beat, X);
     const gate = p.gate;
     for (const e of p.compiled.events) {
       if (e.t > t1) break;
-      if (e.type === 'chord') {
-        if (e.t < t0) continue;
-        c.fillStyle = e.t <= beat ? 'rgba(244,213,148,0.55)' : '#f4d594';
-        c.font = '600 13px Georgia, serif'; c.textAlign = 'left';
-        c.fillText(e.chord.sym, X(e.t) + 3, 9);
-        continue;
-      }
       if (e.type !== 'mel' || e.t + e.dur < t0) continue;
       const x = X(e.t), y = lineY(e.string), len = Math.max(0, e.dur * ppb - 4);
       const past = e.t + e.dur <= beat, now = e.t <= beat && !past, due = gate && gate.e === e;
@@ -125,18 +119,33 @@ export class TabStrip {
     c.fillStyle = 'rgba(22,16,12,0.9)'; c.fillRect(0, 0, gutter, h);
     c.font = '600 11px Georgia, serif'; c.textAlign = 'center';
     for (let s = 0; s < MELODY_COUNT; s++) { c.fillStyle = '#b9aa92'; c.fillText(stringLabel(s), gutter / 2, lineY(s)); }
+    this._playhead(head);
+  }
+
+  /** Chord symbols along the top of either view. */
+  _chordNames(t0, t1, beat, X) {
+    const c = this.ctx;
+    c.font = '600 13px Georgia, serif'; c.textAlign = 'left'; c.textBaseline = 'middle';
+    for (const e of this.player.compiled.events) {
+      if (e.t > t1) break;
+      if (e.type !== 'chord' || e.t < t0) continue;
+      c.fillStyle = e.t <= beat ? 'rgba(244,213,148,0.55)' : '#f4d594';
+      c.fillText(e.chord.sym, X(e.t) + 3, 9);
+    }
+  }
+
+  /** The fixed playhead, the Wait-for-me score and "your turn", shared by both views. */
+  _playhead(head) {
+    const p = this.player, c = this.ctx, w = this.w, h = this.h;
     c.strokeStyle = p.waiting ? '#ffe2ad' : 'rgba(244,213,148,0.85)'; c.lineWidth = p.waiting ? 2.5 : 1.5;
     c.beginPath(); c.moveTo(head, 14); c.lineTo(head, h - 3); c.stroke();
+    c.font = '600 11px system-ui, sans-serif'; c.textAlign = 'right'; c.textBaseline = 'middle';
     if (p.wait && p.mode !== 'listen') {
-      const st = p.stats, n = p.gateCount();
-      const avg = st.hit ? (st.waitSum / st.hit).toFixed(1) : '0.0';
-      c.fillStyle = '#b9aa92'; c.font = '600 11px system-ui, sans-serif'; c.textAlign = 'right';
+      const st = p.stats, n = p.gateCount(), avg = st.hit ? (st.waitSum / st.hit).toFixed(1) : '0.0';
+      c.fillStyle = '#b9aa92';
       c.fillText(`${st.hit} / ${n} notes · ${st.wrong} wrong · waited ${avg} s a note`, w - 8, 9);
     }
-    if (p.waiting) {
-      c.fillStyle = '#ffe2ad'; c.font = '600 11px system-ui, sans-serif'; c.textAlign = 'right';
-      c.fillText('your turn', head - 6, 9);
-    }
+    if (p.waiting) { c.fillStyle = '#ffe2ad'; c.fillText('your turn', head - 6, 9); }
   }
 
   // ---- standard notation: treble staff, key signature, note heads with stems, accidentals, ledger lines
@@ -158,13 +167,7 @@ export class TabStrip {
       if (b < t0 || b > t1) continue;
       const x = Math.round(X(b)) + 0.5; c.beginPath(); c.moveTo(x, Y(E4 + 8)); c.lineTo(x, Y(E4)); c.stroke();
     }
-    for (const e of p.compiled.events) {
-      if (e.t > t1) break;
-      if (e.type !== 'chord' || e.t < t0) continue;
-      c.fillStyle = e.t <= beat ? 'rgba(244,213,148,0.55)' : '#f4d594';
-      c.font = '600 13px Georgia, serif'; c.textAlign = 'left'; c.textBaseline = 'middle';
-      c.fillText(e.chord.sym, X(e.t) + 3, 9);
-    }
+    this._chordNames(t0, t1, beat, X);
     const gate = p.gate, rx = hs * 1.35, ry = hs * 0.95;
     const ledger = (x, step) => {
       c.strokeStyle = 'rgba(232,201,140,0.55)';
@@ -207,14 +210,6 @@ export class TabStrip {
     const SH = [E4 + 8, E4 + 5, E4 + 9, E4 + 6, E4 + 3, E4 + 7, E4 + 4], FL = [E4 + 4, E4 + 7, E4 + 3, E4 + 6, E4 + 2, E4 + 5, E4 + 1];
     c.font = `${Math.round(hs * 3.6)}px system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
     for (let k = 0; k < ks; k++) c.fillText(N.nSharp ? '♯' : '♭', (this.hasClef ? 30 : 12) + k * 7 + 3, Y((N.nSharp ? SH : FL)[k]) - (N.nFlat ? hs * 0.6 : 0));
-    // playhead and status
-    c.strokeStyle = p.waiting ? '#ffe2ad' : 'rgba(244,213,148,0.85)'; c.lineWidth = p.waiting ? 2.5 : 1.5;
-    c.beginPath(); c.moveTo(head, 14); c.lineTo(head, h - 3); c.stroke();
-    if (p.wait && p.mode !== 'listen') {
-      const st = p.stats, n = p.gateCount(), avg = st.hit ? (st.waitSum / st.hit).toFixed(1) : '0.0';
-      c.fillStyle = '#b9aa92'; c.font = '600 11px system-ui, sans-serif'; c.textAlign = 'right'; c.textBaseline = 'middle';
-      c.fillText(`${st.hit} / ${n} notes · ${st.wrong} wrong · waited ${avg} s a note`, w - 8, 9);
-    }
-    if (p.waiting) { c.fillStyle = '#ffe2ad'; c.font = '600 11px system-ui, sans-serif'; c.textAlign = 'right'; c.fillText('your turn', head - 6, 9); }
+    this._playhead(head);
   }
 }

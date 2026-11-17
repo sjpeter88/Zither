@@ -35,6 +35,7 @@ export class MidiInput {
   /** One MIDI message (array of bytes). */
   handle(data) {
     const [st, d1 = 0, d2 = 0] = data, kind = st & 0xf0;
+    if ((kind === 0x90 || kind === 0x80) && (st & 0x0f) === 9) return;      // channel 10 is drums: not notes for a zither
     if (kind === 0x90 && d2 > 0) this.noteOn(d1, d2 / 127);
     else if (kind === 0x80 || (kind === 0x90 && d2 === 0)) this.noteOff(d1);
     else if (kind === 0xb0 && d1 === 64) this.pedal(d2 >= 64);

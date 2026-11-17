@@ -1,10 +1,32 @@
 // Records what is played as the stream of commands sent to the string engine,
 // replays it on the instrument, and renders it to a WAV file offline.
-import { engineConfig, MELODY_COUNT } from './zither-model.js';
+import { engineConfig, MELODY_COUNT, N_STRINGS, FRETS } from './zither-model.js';
 
 const KEEP = new Set(['pluck', 'fret', 'bend', 'damp', 'dampAll', 'vib']);
 const MAX_SECONDS = 600;
 const TAKE_KEY = 'concertzither.take.v1';
+
+/** Only playing commands with sensible values are kept from a stored or imported take;
+ *  anything else (engine settings, tuning, unknown types, bad numbers) is dropped. */
+export function cleanTakeEvents(list) {
+  if (!Array.isArray(list)) return [];
+  const num = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : undefined);
+  const out = [];
+  for (const e of list.slice(0, 200000)) {
+    const m = e && e.m, t = num(e && e.t, 0, MAX_SECONDS);
+    if (!m || t === undefined || !KEEP.has(m.type)) continue;
+    if (m.type === 'dampAll') { out.push({ t, m: { type: 'dampAll' } }); continue; }
+    const s = m.s;
+    if (!Number.isInteger(s) || s < 0 || s >= N_STRINGS) continue;
+    const c = { type: m.type, s };
+    if (m.type === 'pluck') { c.vel = num(m.vel, 0, 1) ?? 0.8; if (s < MELODY_COUNT) c.fret = Math.round(num(m.fret, 0, FRETS) ?? 0); }
+    else if (m.type === 'fret') { if (s >= MELODY_COUNT) continue; c.fret = Math.round(num(m.fret, 0, FRETS) ?? 0); c.hammer = num(m.hammer, 0, 1) ?? 0; }
+    else if (m.type === 'bend') c.semis = num(m.semis, -1, 4) ?? 0;          // the engine's own bend range
+    else if (m.type === 'vib') { c.depth = num(m.depth, 0, 2) ?? 0; c.rate = num(m.rate, 0.5, 12) ?? 5.5; c.delay = num(m.delay, 0, 5) ?? 0; }
+    out.push({ t, m: c });
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
 
 export class Recorder {
   constructor(audio, scene) {
@@ -15,7 +37,13 @@ export class Recorder {
     try { const saved = JSON.parse(localStorage.getItem(TAKE_KEY)); if (saved && saved.length) this.loadTake(saved, false); } catch (e) { /* none */ }
     // every command on its way to the engine passes through here
     audio.tap = (m) => {
-      if (!this.recording || this.playing || !KEEP.has(m.type)) return;
+      if (!this.recording || this.playing) return;
+      if (m.type === 'flush') {            // queued notes were cancelled (a piece stopped or jumped): they never sounded
+        const cut = audio.now - this.t0;
+        this.events = this.events.filter((e) => e.t <= cut);
+        return;
+      }
+      if (!KEEP.has(m.type)) return;
       const t = (m.time != null ? m.time : audio.now) - this.t0;
       if (t < 0 || t > MAX_SECONDS) return;
       const copy = { ...m }; delete copy.time;
@@ -52,7 +80,7 @@ export class Recorder {
   /** Load a stored take (from the library or the previous session). */
   loadTake(events, fromLibrary = true) {
     this.stopPlayback();
-    this.events = events.map((e) => ({ t: e.t, m: { ...e.m } }));
+    this.events = cleanTakeEvents(events);
     this.duration = this.events.length ? this.events[this.events.length - 1].t : 0;
     this.fromLibrary = fromLibrary;
     if (this.onChange) this.onChange();

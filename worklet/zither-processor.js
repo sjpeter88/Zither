@@ -316,6 +316,12 @@
     }
 
     _apply(m) {
+      // never let a malformed command break the engine: per-string commands need a real string,
+      // settings need values of the right kind
+      if ('s' in m && !(Number.isInteger(m.s) && m.s >= 0 && m.s < this.n)) return;
+      if (m.type === 'resonance' && !Number.isFinite(m.value)) return;
+      if (m.type === 'voice' && !(m.value && typeof m.value === 'object')) return;
+      if (m.type === 'tuning' && !(Array.isArray(m.freqs) && m.freqs.length === this.n && m.freqs.every((f) => f > 0 && f < 20000))) return;
       switch (m.type) {
         case 'pluck': this.pluck(m.s, m.vel, m.fret, m.kind); break;
         case 'fret': this.setFret(m.s, m.fret, m.hammer || 0); break;
@@ -325,7 +331,6 @@
         case 'dampAll': for (let i = 0; i < this.n; i++) this.damp(i); break;
         case 'flush': this.queue.length = 0; break;
         case 'resonance': this.setResonance(m.value); break;
-        case 'master': this.master = m.value; break;
         case 'voice': this.setVoice(m.value); break;
         case 'tuning': this.setTuning(m.freqs); break;
       }

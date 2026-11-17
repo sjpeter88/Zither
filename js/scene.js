@@ -526,6 +526,9 @@ export class ZitherScene {
     for (const [idx, kind] of list) if (this.strings[idx]) { this.strings[idx].hint = 1; this.strings[idx].hintColor = kind; }
   }
 
+  /** Light the strings of a chord (from chordStrings): its accompaniment strings and its bass string. */
+  showChord(cs) { this.setHints(cs ? [...cs.acc.map((s) => [s, 0]), [cs.bass, 1]] : []); }
+
   flash(string, strength = 1) { const st = this.strings[string]; if (st) st.flash = Math.max(st.flash, strength); }
 
   setMirror(on) { this.mirror = !!on; this.inst.scale.x = on ? -1 : 1; this.labels.scale.x = on ? -1 : 1; this._camera(); }

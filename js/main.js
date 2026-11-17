@@ -1,11 +1,11 @@
 // Concert Zither — application glue: interface, chords, keyboard, transport.
-import { STRINGS, MELODY_COUNT, N_STRINGS, GROUP_START, CHORD_ROOTS, PC_NAMES, chordStrings, chordName, placeMelodyNote, setTuning, TUNINGS, VOICES } from './zither-model.js';
+import { STRINGS, GROUP_START, CHORD_ROOTS, PC_NAMES, chordStrings, placeMelodyNote, setTuning, TUNINGS, VOICES } from './zither-model.js';
 import { MidiInput } from './midi.js';
 import { ZitherScene } from './scene.js';
 import { ZitherAudio } from './audio.js';
 import { ZitherInput, startTremolo } from './input.js';
 import { SongPlayer, songFromAbc, transposeKey } from './player.js';
-import { Recorder } from './recorder.js';
+import { Recorder, cleanTakeEvents } from './recorder.js';
 import { SONGS, ACCURACY } from './songs.js';
 import { TabStrip } from './tab.js';
 
@@ -48,7 +48,29 @@ const recorder = new Recorder(audio, scene);
 
 // songs added by the player are kept on this device
 const USER_KEY = 'concertzither.songs.v1';
-try { for (const s of JSON.parse(localStorage.getItem(USER_KEY)) || []) if (s && (s.abc || (s.take && Array.isArray(s.events)))) SONGS.push(s); } catch (e) { /* none */ }
+/** A song or recording from storage or from an imported file, reduced to known fields of the right types (null if unusable). */
+function cleanUserSong(s) {
+  if (!s || typeof s !== 'object' || typeof s.title !== 'string') return null;
+  const str = (v, max, dflt = '') => (typeof v === 'string' ? v.slice(0, max) : dflt);
+  const num = (v, lo, hi, dflt) => (Number.isFinite(+v) ? Math.max(lo, Math.min(hi, +v)) : dflt);
+  const base = {
+    id: str(s.id, 60) || 'user-' + Math.random().toString(36).slice(2, 10), user: true,
+    title: s.title.slice(0, 80), composer: str(s.composer, 80, 'Imported'), source: str(s.source, 300),
+  };
+  if (s.take) {
+    const events = cleanTakeEvents(s.events);
+    if (!events.some((e) => e.m.type === 'pluck')) return null;
+    return { ...base, category: 'My Recordings', take: true, key: '', meter: '', accuracy: 'take', events, duration: events[events.length - 1].t };
+  }
+  if (typeof s.abc !== 'string' || !s.abc.trim()) return null;
+  return {
+    ...base, category: 'My Songs', abc: s.abc.slice(0, 100000), accuracy: Object.hasOwn(ACCURACY, s.accuracy) ? s.accuracy : 'user',
+    year: Number.isInteger(s.year) ? s.year : null, key: str(s.key, 12, 'C') || 'C', meter: /^\d+\/\d+$/.test(s.meter) ? s.meter : '4/4',
+    unit: /^\d+\/\d+$/.test(s.unit) ? s.unit : '1/8', tempo: num(s.tempo, 30, 300, 108),
+    style: ['waltz', 'polka', 'arp', 'hymn'].includes(s.style) ? s.style : 'waltz', transpose: num(s.transpose, -24, 24, 0),
+  };
+}
+try { for (const raw of JSON.parse(localStorage.getItem(USER_KEY)) || []) { const s = cleanUserSong(raw); if (s) SONGS.push(s); } } catch (e) { /* none */ }
 // how each piece has gone in Wait for me, kept on this device
 const PRACTICE_KEY = 'concertzither.practice.v1';
 let practice = {};
@@ -114,16 +136,18 @@ function report(extra) {
   if (host) host.postMessage(info);
   return info;
 }
-window.zitherStatus = () => report({});
 
+let audioReported = false;
 async function startAudio() {
   try {
     await audio.start();
+    if (audioReported) return true;              // already running: nothing more to set up or report
+    audioReported = true;
     $('start').classList.add('gone');
     setTimeout(() => { $('start').hidden = true; }, 600);
     if (settings.midi && midi.supported && !midi.access) midi.connect().catch(() => {});
     $('audioInfo').textContent = `Audio running at ${audio.ctx.sampleRate} Hz · 42 modelled strings · three.js r170`;
-    report({});
+    report({});                                  // once per session, for the Windows app's log
     return true;
   } catch (e) {
     console.error(e);
@@ -137,7 +161,15 @@ $('start').addEventListener('click', (e) => { if (e.target === $('start')) start
 // iOS suspends audio when the app goes to the background; wake it on the next touch
 for (const ev of ['pointerup', 'touchend', 'keydown'])
   document.addEventListener(ev, () => { if (audio.ready && audio.ctx.state !== 'running') audio.ctx.resume(); }, { passive: true });
-document.addEventListener('visibilitychange', () => { if (document.hidden && player.playing) { player.pause(); syncTransport(); } });
+// in the background: pause the piece and stop everything that runs on timers (browsers slow them down there)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) return;
+  if (player.playing) { player.pause(); syncTransport(); }
+  if (metro.on) setMetro(false);
+  stopChordLoop(); releaseKeys();
+});
+// a key let go while the window was not in front never sends its keyup
+window.addEventListener('blur', releaseKeys);
 audio.onState = (state) => { if (state === 'interrupted' || state === 'suspended') { if (player.playing) { player.pause(); syncTransport(); } } };
 
 // ---- chords ---------------------------------------------------------------------------------
@@ -163,7 +195,7 @@ function markRoot(pc) {
 }
 function showChord(pc, quality) {
   const cs = chordStrings(pc, quality);
-  scene.setHints([...cs.acc.map((s) => [s, 0]), [cs.bass, 1]]);
+  scene.showChord(cs);
   markRoot(pc);
   return cs;
 }
@@ -306,13 +338,18 @@ window.addEventListener('keydown', async (e) => {
   else if (k === 'ArrowUp') { e.preventDefault(); gliss(true); }
   else if (k === 'ArrowDown') { e.preventDefault(); gliss(false); }
 });
-window.addEventListener('keyup', (e) => {
-  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+function releaseKey(k) {
   holds.delete('k' + k);
   const held = heldKeys.get(k);
-  if (held && held.stop) held.stop();
-  if (held) { heldKeys.delete(k); scene.setFinger(held.string, 0, 'user'); audio.damp(held.string); }
-});
+  if (!held) return;
+  if (held.stop) held.stop();
+  heldKeys.delete(k); scene.setFinger(held.string, 0, 'user'); audio.damp(held.string);
+}
+function releaseKeys() {
+  for (const k of [...heldKeys.keys()]) releaseKey(k);
+  for (const h of [...holds]) if (h[0] === 'k') holds.delete(h);
+}
+window.addEventListener('keyup', (e) => releaseKey(e.key.length === 1 ? e.key.toLowerCase() : e.key));
 
 // ---- MIDI keyboard: keys below C3 choose chords, higher keys play the melody
 const midi = new MidiInput(audio, scene, {
@@ -321,12 +358,12 @@ const midi = new MidiInput(audio, scene, {
   onMelodyPluck: (m, s) => player.userPluck(m, s),
 });
 midi.onStatus = (names) => { $('midiStatus').textContent = names.length ? 'Connected: ' + names.join(', ') : 'No MIDI device found. Plug one in; it is picked up automatically.'; };
-window.__midi = midi;
 
 // ---- song library and transport ---------------------------------------------------------------
 const listEl = $('songList');
 let songIndex = -1;
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const accuracyOf = (song) => (Object.hasOwn(ACCURACY, song.accuracy) ? song.accuracy : song.take ? 'take' : 'user');
 function renderList() {
   listEl.textContent = '';
   const q = ($('songSearch').value || '').trim().toLowerCase();
@@ -340,8 +377,9 @@ function renderList() {
     if (song.category !== cat) { cat = song.category; const h = document.createElement('h3'); h.textContent = cat; listEl.appendChild(h); }
     const b = document.createElement('button');
     b.className = 'song' + (i === songIndex ? ' current' : ''); b.dataset.i = i;
-    const acc = ACCURACY[song.accuracy] || ACCURACY.user;
-    b.innerHTML = `<b></b><span class="badge ${song.accuracy}" title="${acc.note}">${acc.label}</span><i></i><span class="rec"></span><span class="src"></span>`;
+    b.innerHTML = '<b></b><span class="badge"></span><i></i><span class="rec"></span><span class="src"></span>';
+    const accKey = accuracyOf(song), badge = b.querySelector('.badge');      // only known values reach the page
+    badge.classList.add(accKey); badge.title = ACCURACY[accKey].note; badge.textContent = ACCURACY[accKey].label;
     const fav = document.createElement('span');
     fav.className = 'fav' + (favs.has(song.id) ? ' on' : ''); fav.setAttribute('role', 'button');
     fav.title = favs.has(song.id) ? 'Remove from favourites' : 'Add to favourites';
@@ -362,8 +400,13 @@ function renderList() {
       del.className = 'del'; del.textContent = 'Remove'; del.setAttribute('role', 'button');
       del.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (!window.confirm(`Remove “${song.title}” from this device? This cannot be undone.`)) return;
         const cur = SONGS[songIndex];
+        if (cur === song && recorder.fromLibrary) recorder.discard();
         SONGS.splice(SONGS.indexOf(song), 1); saveUserSongs();
+        // forget everything kept about it
+        delete practice[song.id]; try { localStorage.setItem(PRACTICE_KEY, JSON.stringify(practice)); } catch (err) { /* full or private */ }
+        delete settings.keyShift[song.id]; settings.favs = settings.favs.filter((x) => x !== song.id); save();
         if (cur === song) { player.stop(); songIndex = -1; loadSong(0); } else songIndex = SONGS.indexOf(cur);
         renderList();
       });
@@ -390,13 +433,15 @@ renderList();
 function loadSong(i) {
   songIndex = (i + SONGS.length) % SONGS.length;
   const song = SONGS[songIndex];
+  recorder.stopPlayback();                                 // a recording and a piece never play over each other
+  if (!song.take && recorder.fromLibrary) recorder.discard();      // leaving a kept recording: put its take bar away
   if (song.take) {                                         // a kept recording: played by the recorder, not the song player
     player.stop(); player.song = null; player.compiled = null;
     recorder.loadTake(song.events);
     $('songTitle').textContent = song.title;
     $('songSub').textContent = 'Your recording · ' + fmt(song.duration);
     for (const b of listEl.querySelectorAll('.song')) b.classList.toggle('current', +b.dataset.i === songIndex);
-    settings.song = song.id; save(); syncTransport();
+    settings.song = song.id; save(); syncTransport(); syncKeyRow(); syncLoopRegion();
     return;
   }
   try { player.load({ ...song, keyShift: settings.keyShift[song.id] || 0 }); } catch (e) { console.error(e); toast('Could not load this piece.'); return; }
@@ -427,7 +472,7 @@ function shiftKey(d) {
 function syncSongSub() {
   const song = SONGS[songIndex]; if (!song || song.take) return;
   const mode = { listen: '', melody: settings.wait ? ' · waits for your melody' : ' · you play the melody', chords: settings.wait ? ' · waits for your bass notes' : ' · you play the chords' }[settings.mode];
-  $('songSub').textContent = `${song.composer} · ${ACCURACY[song.accuracy].label.toLowerCase()}${mode}`;
+  $('songSub').textContent = `${song.composer} · ${ACCURACY[accuracyOf(song)].label.toLowerCase()}${mode}`;
 }
 function syncTransport() {
   $('playIcon').setAttribute('d', player.playing ? 'M7 5h3.5v14H7zM13.5 5H17v14h-3.5z' : 'M7 4l13 8-13 8z');
@@ -438,7 +483,7 @@ async function togglePlay() {
   const cur = SONGS[songIndex];
   if (cur && cur.take) { if (recorder.playing) recorder.stopPlayback(); else { if (!(await startAudio())) return; recorder.play(); } return; }
   if (!player.playing && metro.on) { setMetro(false); toast('Metronome off while the piece plays.'); }
-  if (player.playing) player.pause(); else { if (!(await startAudio())) return; await player.play(settings.countIn); }
+  if (player.playing) player.pause(); else { if (!(await startAudio())) return; recorder.stopPlayback(); await player.play(settings.countIn); }
   syncTransport();
 }
 player.onState = syncTransport;
@@ -455,14 +500,16 @@ function nextSongIndex(from, step = 1) {
   for (let k = 1; k <= SONGS.length; k++) { const i = ((from + step * k) % SONGS.length + SONGS.length) % SONGS.length; if (!SONGS[i].take) return i; }
   return from;
 }
+// each complete run of a piece in Wait for me is kept, also when the piece repeats
+player.onFinish = () => {
+  const st = player.stats, n = player.gateCount();
+  if (!player.wait || !n || !st.hit || !player.song) return;
+  const { acc, r } = recordPractice(player.song, st, n);
+  toast(`Finished: ${st.hit} of ${n} notes, ${Math.round(acc * 100)}% right, ${(st.waitSum / st.hit).toFixed(1)} s waited per note. Practised ${r.times}× in all.`, 6000);
+  renderList();
+};
 player.onEnd = () => {
   syncTransport();
-  const st = player.stats, n = player.gateCount();
-  if (player.wait && n && st.hit && player.song) {
-    const { acc, r } = recordPractice(player.song, st, n);
-    toast(`Finished: ${st.hit} of ${n} notes, ${Math.round(acc * 100)}% right, ${(st.waitSum / st.hit).toFixed(1)} s waited per note. Practised ${r.times}× in all.`, 6000);
-    renderList();
-  }
   if (settings.repeat !== 'all') return;
   nextTimer = setTimeout(() => { loadSong(nextSongIndex(songIndex)); player.play().then(syncTransport); }, 700);
 };
@@ -567,7 +614,6 @@ $('waitBtn').addEventListener('click', () => {
 function closePanels() { $('library').hidden = true; $('settings').hidden = true; $('manual').hidden = true; $('importer').hidden = true; }
 
 // ---- recording a take
-const fmtTake = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 let recTick;
 recorder.onChange = () => {
   $('recBtn').setAttribute('aria-pressed', String(recorder.recording));
@@ -575,11 +621,11 @@ recorder.onChange = () => {
   clearInterval(recTick);
   if (recorder.recording) {
     $('takeBar').hidden = false; $('takePlay').hidden = true; $('takeSave').hidden = true; $('takeKeep').hidden = true;
-    const show = () => { $('takeInfo').textContent = 'Recording ' + fmtTake(audio.now - recorder.t0); };
+    const show = () => { $('takeInfo').textContent = 'Recording ' + fmt(audio.now - recorder.t0); };
     show(); recTick = setInterval(show, 500);
   } else if (recorder.hasTake) {
     $('takeBar').hidden = false; $('takePlay').hidden = false; $('takeSave').hidden = false; $('takeKeep').hidden = recorder.fromLibrary;
-    $('takeInfo').textContent = 'Your take · ' + fmtTake(recorder.duration);
+    $('takeInfo').textContent = 'Your take · ' + fmt(recorder.duration);
     $('takePlay').textContent = recorder.playing ? 'Stop' : 'Play take';
   } else $('takeBar').hidden = true;
 };
@@ -588,7 +634,7 @@ $('recBtn').addEventListener('click', async () => {
   if (!(await startAudio())) return;
   recorder.start(); toast('Recording. Play, then press the record button again to finish.');
 });
-$('takePlay').addEventListener('click', () => { if (recorder.playing) recorder.stopPlayback(); else { if (player.playing) { player.pause(); syncTransport(); } recorder.play(); } });
+$('takePlay').addEventListener('click', () => { if (recorder.playing) recorder.stopPlayback(); else { if (player.playing) { player.pause(); syncTransport(); } clearTimeout(nextTimer); recorder.play(); } });
 $('takeClose').addEventListener('click', () => { recorder.discard(); });
 $('takeKeep').addEventListener('click', () => {
   const when = new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -604,19 +650,10 @@ $('takeSave').addEventListener('click', async () => {
   const btn = $('takeSave'); btn.disabled = true; btn.textContent = 'Rendering…';
   try {
     const { blob } = await recorder.renderWav();
-    const name = 'zither-take-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.wav';
-    const file = typeof File === 'function' ? new File([blob], name, { type: 'audio/wav' }) : null;
-    if (file && navigator.canShare && navigator.canShare({ files: [file] }) && /iPad|iPhone|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) {
-      await navigator.share({ files: [file], title: 'Zither take' });          // iPad: the share sheet (Save to Files, AirDrop…)
-    } else {
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
-      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 30000);
-      toast('Saved ' + name);
-    }
+    await offerFile(blob, 'zither-take-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.wav');
   } catch (e) { if (e && e.name !== 'AbortError') { console.error(e); toast('Could not save the audio: ' + (e.message || e), 4000); } }
   btn.disabled = false; btn.textContent = 'Save audio';
 });
-window.__recorder = recorder;
 
 // ---- adding a song from ABC notation
 $('importBtn').addEventListener('click', () => { closePanels(); $('importer').hidden = false; $('abcMsg').textContent = ''; setTimeout(() => $('abcText').focus(), 50); });
@@ -737,7 +774,24 @@ player.onLoop = () => {
 };
 
 // ---- moving your own songs and recordings to another device
+// The Windows app saves through its own Save dialog: WebView2 does not allow page downloads there.
+let saveReply = null;
+if (host) host.addEventListener('message', (e) => { const m = e.data; if (m && m.type === 'saved' && saveReply) { saveReply(m); saveReply = null; } });
+function saveThroughShell(blob, name) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = () => reject(r.error);
+    r.onload = () => {
+      saveReply = (m) => { if (m.ok) toast('Saved ' + m.path, 4000); else if (m.error) toast('Could not save: ' + m.error, 4000); resolve(); };
+      host.postMessage({ type: 'save', name, data: String(r.result).split(',')[1] || '' });
+    };
+    r.readAsDataURL(blob);
+  });
+}
+
+/** Hand a file to the person: the share sheet on iPad, the Save dialog in the Windows app, a download elsewhere. */
 async function offerFile(blob, name) {
+  if (host) return saveThroughShell(blob, name);
   const file = typeof File === 'function' ? new File([blob], name, { type: blob.type }) : null;
   if (file && navigator.canShare && navigator.canShare({ files: [file] }) && /iPad|iPhone|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) {
     await navigator.share({ files: [file], title: name });
@@ -764,11 +818,11 @@ $('importFile').addEventListener('change', async () => {
     if (/^\s*\{/.test(text)) {
       const data = JSON.parse(text);
       if (data.format !== 'concert-zither-songs' || !Array.isArray(data.songs)) throw new Error('This file is not a Concert Zither song export.');
-      for (const s of data.songs) {
-        const ok = s && typeof s.title === 'string' && (typeof s.abc === 'string' || (s.take && Array.isArray(s.events)));
-        if (!ok || SONGS.some((x) => x.id === s.id)) { skipped++; continue; }
-        if (!s.take) songFromAbc('K:' + (s.key || 'C') + '\n' + s.abc);       // reject anything that does not parse
-        SONGS.push({ ...s, user: true, category: s.take ? 'My Recordings' : 'My Songs' }); added++;
+      for (const raw of data.songs) {
+        const s = cleanUserSong(raw);
+        if (!s || SONGS.some((x) => x.id === s.id)) { skipped++; continue; }
+        if (!s.take) { try { songFromAbc('K:' + s.key + '\n' + s.abc); } catch (err) { skipped++; continue; } }      // leave out anything that does not parse
+        SONGS.push(s); added++;
       }
     } else {
       const { song } = songFromAbc(text); SONGS.push(song); added = 1;      // a plain ABC tune
@@ -797,10 +851,8 @@ if (params.has('selftest')) {
   (async () => {
     const ok = await startAudio();
     if (ok) { pressChord(0, { force: true, pattern: 'together' }); audio.pluck(0, 0.9, 5); }
-    setTimeout(() => {
-      const r = report({ type: 'selftest', started: ok, userAgent: navigator.userAgent });
-      window.__selftest = r;
-    }, 2500);
+    setTimeout(() => report({ type: 'selftest', started: ok, userAgent: navigator.userAgent }), 2500);
   })();
 }
-window.__zither = { scene, audio, player, input, settings, SONGS, pressChord, loadSong };
+// for testing from the browser console: open the page with ?debug
+if (params.has('debug')) window.__zither = { scene, audio, player, input, settings, SONGS, pressChord, loadSong, recorder, midi, report };
