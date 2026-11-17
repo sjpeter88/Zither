@@ -1,748 +1,783 @@
 {
   "tuning_48000": {
     "notes": 187,
-    "worstCents": 0.24614027435409996,
-    "worstCentsAtOutput": 2.062062975939844,
-    "minFundamentalShare": 0.19999982643255249,
+    "worstCents": 0.6726835364994664,
+    "worstCentsAtOutput": 1.8392123355826635,
+    "minFundamentalShare": 0.19927145724610296,
     "pass": true,
     "open": [
       {
         "string": 1,
         "note": "A4",
         "hz": 440,
-        "centsAlone": -0.00294,
-        "cents": -0.01338,
-        "centsAtOutput": 0.08166
+        "centsAlone": -0.00327,
+        "cents": -0.04848,
+        "centsAtOutput": -0.02975
       },
       {
         "string": 2,
         "note": "A4",
         "hz": 440,
-        "centsAlone": -0.00294,
-        "cents": -0.01338,
-        "centsAtOutput": 0.07993
+        "centsAlone": -0.00327,
+        "cents": -0.04848,
+        "centsAtOutput": -0.02956
       },
       {
         "string": 3,
         "note": "D4",
         "hz": 293.665,
-        "centsAlone": -0.00055,
-        "cents": 0.01797,
-        "centsAtOutput": 0.19286
+        "centsAlone": -0.00062,
+        "cents": 0.00279,
+        "centsAtOutput": 0.09252
       },
       {
         "string": 4,
         "note": "G3",
         "hz": 195.998,
         "centsAlone": 0.00704,
-        "cents": 0.06742,
-        "centsAtOutput": 0.22662
+        "cents": -0.02697,
+        "centsAtOutput": -0.03221
       },
       {
         "string": 5,
         "note": "C3",
         "hz": 130.813,
-        "centsAlone": 0.0137,
-        "cents": 0.10366,
-        "centsAtOutput": 0.22914
+        "centsAlone": 0.01364,
+        "cents": -0.0235,
+        "centsAtOutput": 0.06917
       },
       {
         "string": 6,
         "note": "E♭4",
         "hz": 311.127,
-        "centsAlone": -0.00578,
-        "cents": 0.02054,
-        "centsAtOutput": 0.29873
+        "centsAlone": -0.0059,
+        "cents": -0.00175,
+        "centsAtOutput": 0.1683
       },
       {
         "string": 7,
         "note": "B♭3",
         "hz": 233.082,
-        "centsAlone": 0.00604,
-        "cents": 0.11563,
-        "centsAtOutput": 0.3012
+        "centsAlone": 0.00599,
+        "cents": -0.04277,
+        "centsAtOutput": 0.05793
       },
       {
         "string": 8,
         "note": "F4",
         "hz": 349.228,
-        "centsAlone": -0.00446,
-        "cents": 0.01287,
-        "centsAtOutput": 0.22817
+        "centsAlone": -0.00466,
+        "cents": -0.07267,
+        "centsAtOutput": 0.08458
       },
       {
         "string": 9,
         "note": "C4",
         "hz": 261.626,
-        "centsAlone": 0.00525,
-        "cents": 0.02959,
-        "centsAtOutput": 0.33929
+        "centsAlone": 0.00507,
+        "cents": -0.01942,
+        "centsAtOutput": 0.14814
       },
       {
         "string": 10,
         "note": "G3",
         "hz": 195.998,
-        "centsAlone": 0.00799,
-        "cents": 0.07293,
-        "centsAtOutput": 0.64713
+        "centsAlone": 0.00798,
+        "cents": -0.03286,
+        "centsAtOutput": -0.0923
       },
       {
         "string": 11,
         "note": "D4",
         "hz": 293.665,
-        "centsAlone": -0.00069,
-        "cents": -0.00795,
-        "centsAtOutput": 0.5652
+        "centsAlone": -0.00077,
+        "cents": -0.00469,
+        "centsAtOutput": 0.22978
       },
       {
         "string": 12,
         "note": "A3",
         "hz": 220,
-        "centsAlone": 0.00548,
-        "cents": 0.13138,
-        "centsAtOutput": 0.28576
+        "centsAlone": 0.0054,
+        "cents": -0.04547,
+        "centsAtOutput": 0.0434
       },
       {
         "string": 13,
         "note": "E4",
         "hz": 329.628,
-        "centsAlone": -0.00425,
-        "cents": -0.00099,
-        "centsAtOutput": 0.26569
+        "centsAlone": -0.00434,
+        "cents": -0.01094,
+        "centsAtOutput": 0.17151
       },
       {
         "string": 14,
         "note": "B3",
         "hz": 246.942,
-        "centsAlone": 0.00913,
-        "cents": 0.09786,
-        "centsAtOutput": 0.30149
+        "centsAlone": 0.00911,
+        "cents": -0.04244,
+        "centsAtOutput": 0.06604
       },
       {
         "string": 15,
         "note": "F♯3",
         "hz": 184.997,
-        "centsAlone": 0.01462,
-        "cents": 0.16439,
-        "centsAtOutput": 0.20995
+        "centsAlone": 0.01457,
+        "cents": -0.07203,
+        "centsAtOutput": -0.01495
       },
       {
         "string": 16,
         "note": "C♯4",
         "hz": 277.183,
-        "centsAlone": 0.00138,
-        "cents": 0.0645,
-        "centsAtOutput": 0.34298
+        "centsAlone": 0.00128,
+        "cents": 0.00803,
+        "centsAtOutput": 0.14136
       },
       {
         "string": 17,
         "note": "G♯3",
         "hz": 207.652,
         "centsAlone": 0.00425,
-        "cents": 0.14235,
-        "centsAtOutput": 0.26742
+        "cents": -0.05254,
+        "centsAtOutput": 0.01876
       },
       {
         "string": 18,
         "note": "E♭3",
         "hz": 155.563,
-        "centsAlone": 0.00895,
-        "cents": 0.23849,
-        "centsAtOutput": 0.10487
+        "centsAlone": 0.00896,
+        "cents": 0.00066,
+        "centsAtOutput": 0.12589
       },
       {
         "string": 19,
         "note": "B♭2",
         "hz": 116.541,
-        "centsAlone": 0.01699,
-        "cents": 0.003,
-        "centsAtOutput": 0.00724
+        "centsAlone": 0.01698,
+        "cents": -0.24954,
+        "centsAtOutput": 0.53462
       },
       {
         "string": 20,
         "note": "F3",
         "hz": 174.614,
-        "centsAlone": 0.01547,
-        "cents": 0.15249,
-        "centsAtOutput": 0.17697
+        "centsAlone": 0.0154,
+        "cents": -0.08631,
+        "centsAtOutput": -0.0014
       },
       {
         "string": 21,
         "note": "C3",
         "hz": 130.813,
-        "centsAlone": 0.01503,
-        "cents": 0.11815,
-        "centsAtOutput": 0.38733
+        "centsAlone": 0.01496,
+        "cents": -0.02693,
+        "centsAtOutput": 0.15077
       },
       {
         "string": 22,
         "note": "G2",
         "hz": 97.999,
-        "centsAlone": 0.00668,
-        "cents": 0.00608,
-        "centsAtOutput": -0.02222
+        "centsAlone": 0.00656,
+        "cents": -0.26046,
+        "centsAtOutput": 0.61742
       },
       {
         "string": 23,
         "note": "D3",
         "hz": 146.832,
-        "centsAlone": 0.00588,
-        "cents": 0.24265,
-        "centsAtOutput": 0.05883
+        "centsAlone": 0.00586,
+        "cents": -0.01313,
+        "centsAtOutput": 0.13617
       },
       {
         "string": 24,
         "note": "A2",
         "hz": 110,
-        "centsAlone": 0.01188,
-        "cents": 0.0049,
-        "centsAtOutput": -0.00766
+        "centsAlone": 0.01184,
+        "cents": -0.25291,
+        "centsAtOutput": 0.56321
       },
       {
         "string": 25,
         "note": "E3",
         "hz": 164.814,
-        "centsAlone": 0.01359,
-        "cents": 0.23261,
-        "centsAtOutput": 0.14451
+        "centsAlone": 0.01361,
+        "cents": 0.01281,
+        "centsAtOutput": 0.12021
       },
       {
         "string": 26,
         "note": "B2",
         "hz": 123.471,
-        "centsAlone": 0.02116,
-        "cents": -0.0017,
-        "centsAtOutput": 0.0374
+        "centsAlone": 0.02115,
+        "cents": -0.24821,
+        "centsAtOutput": 0.52497
       },
       {
         "string": 27,
         "note": "F♯2",
         "hz": 92.499,
-        "centsAlone": 0.00617,
-        "cents": 0.00591,
-        "centsAtOutput": -0.01955
+        "centsAlone": 0.00601,
+        "cents": -0.26405,
+        "centsAtOutput": 0.6574
       },
       {
         "string": 28,
         "note": "C♯3",
         "hz": 138.591,
-        "centsAlone": 0.00619,
-        "cents": 0.24614,
-        "centsAtOutput": 0.0058
+        "centsAlone": 0.00612,
+        "cents": -0.02714,
+        "centsAtOutput": 0.15073
       },
       {
         "string": 29,
         "note": "G♯2",
         "hz": 103.826,
-        "centsAlone": 0.0084,
-        "cents": 0.0058,
-        "centsAtOutput": -0.0177
+        "centsAlone": 0.00832,
+        "cents": -0.25668,
+        "centsAtOutput": 0.59905
       },
       {
         "string": 30,
         "note": "F2",
         "hz": 87.307,
-        "centsAlone": 0.00486,
-        "cents": 0.00685,
-        "centsAtOutput": 0.0057
+        "centsAlone": 0.00471,
+        "cents": -0.24227,
+        "centsAtOutput": 0.54042
       },
       {
         "string": 31,
         "note": "E2",
         "hz": 82.407,
-        "centsAlone": -0.00052,
-        "cents": 0.03266,
-        "centsAtOutput": 0.03272
+        "centsAlone": -0.00064,
+        "cents": 0.03301,
+        "centsAtOutput": 0.03313
       },
       {
         "string": 32,
         "note": "E♭2",
         "hz": 77.782,
-        "centsAlone": -0.00996,
+        "centsAlone": -0.01008,
         "cents": -0.00278,
-        "centsAtOutput": -0.00288
+        "centsAtOutput": -0.0027
       },
       {
         "string": 33,
         "note": "D2",
         "hz": 73.416,
-        "centsAlone": -0.02062,
-        "cents": -0.02378,
-        "centsAtOutput": -0.02475
+        "centsAlone": -0.02077,
+        "cents": -0.02389,
+        "centsAtOutput": -0.02434
       },
       {
         "string": 34,
         "note": "C♯2",
         "hz": 69.296,
-        "centsAlone": -0.03101,
-        "cents": -0.03976,
-        "centsAtOutput": -0.04017
+        "centsAlone": -0.0312,
+        "cents": -0.03994,
+        "centsAtOutput": -0.03995
       },
       {
         "string": 35,
         "note": "C2",
         "hz": 65.406,
-        "centsAlone": -0.04071,
-        "cents": -0.05285,
-        "centsAtOutput": -0.05243
+        "centsAlone": -0.04095,
+        "cents": -0.0531,
+        "centsAtOutput": -0.05244
       },
       {
         "string": 36,
         "note": "B1",
         "hz": 61.735,
-        "centsAlone": -0.04976,
-        "cents": -0.06373,
-        "centsAtOutput": -0.06675
+        "centsAlone": -0.05007,
+        "cents": -0.0641,
+        "centsAtOutput": -0.06655
       },
       {
         "string": 37,
         "note": "B♭1",
         "hz": 58.27,
-        "centsAlone": -0.05829,
-        "cents": -0.07252,
-        "centsAtOutput": -0.07367
+        "centsAlone": -0.05867,
+        "cents": -0.07298,
+        "centsAtOutput": -0.07385
       },
       {
         "string": 38,
         "note": "A1",
         "hz": 55,
-        "centsAlone": -0.06662,
-        "cents": -0.07852,
-        "centsAtOutput": -0.07742
+        "centsAlone": -0.06708,
+        "cents": -0.07912,
+        "centsAtOutput": -0.0772
       },
       {
         "string": 39,
         "note": "G♯1",
         "hz": 51.913,
-        "centsAlone": -0.07524,
-        "cents": -0.08061,
-        "centsAtOutput": -0.08104
+        "centsAlone": -0.07579,
+        "cents": -0.08138,
+        "centsAtOutput": -0.0816
       },
       {
         "string": 40,
         "note": "G1",
         "hz": 48.999,
-        "centsAlone": -0.08499,
-        "cents": -0.07613,
-        "centsAtOutput": -0.07966
+        "centsAlone": -0.08563,
+        "cents": -0.07713,
+        "centsAtOutput": -0.0803
       },
       {
         "string": 41,
         "note": "F♯1",
         "hz": 46.249,
-        "centsAlone": -0.09718,
-        "cents": -0.05843,
-        "centsAtOutput": -0.06514
+        "centsAlone": -0.09791,
+        "cents": -0.05973,
+        "centsAtOutput": -0.06539
       },
       {
         "string": 42,
         "note": "F1",
         "hz": 43.654,
-        "centsAlone": -0.11297,
-        "cents": 0.00014,
-        "centsAtOutput": 0.00646
+        "centsAlone": -0.11382,
+        "cents": -0.00167,
+        "centsAtOutput": 0.00509
       }
     ]
   },
   "glide_48000": {
-    "cents": -0.005564317347065005,
+    "cents": -0.1902354483447773,
     "pass": true
   },
   "vibrato_48000": {
     "swingCents": 24.999780675778453,
-    "centsAfter": -0.0025512284193372546,
+    "centsAfter": 0.0019458189196022693,
     "pass": true
   },
   "tuning_44100": {
     "notes": 187,
-    "worstCents": 0.24608415678387574,
-    "worstCentsAtOutput": 2.0614702983249873,
-    "minFundamentalShare": 0.20106281018442912,
+    "worstCents": 0.6773062400516087,
+    "worstCentsAtOutput": 1.840671985093028,
+    "minFundamentalShare": 0.20038934729533736,
     "pass": true,
     "open": [
       {
         "string": 1,
         "note": "A4",
         "hz": 440,
-        "centsAlone": -0.00294,
-        "cents": -0.0135,
-        "centsAtOutput": 0.08129
+        "centsAlone": -0.00327,
+        "cents": -0.04832,
+        "centsAtOutput": -0.0296
       },
       {
         "string": 2,
         "note": "A4",
         "hz": 440,
-        "centsAlone": -0.00294,
-        "cents": -0.0135,
-        "centsAtOutput": 0.07957
+        "centsAlone": -0.00327,
+        "cents": -0.04832,
+        "centsAtOutput": -0.0294
       },
       {
         "string": 3,
         "note": "D4",
         "hz": 293.665,
-        "centsAlone": -0.00055,
-        "cents": 0.01793,
-        "centsAtOutput": 0.1928
+        "centsAlone": -0.00062,
+        "cents": 0.00276,
+        "centsAtOutput": 0.09233
       },
       {
         "string": 4,
         "note": "G3",
         "hz": 195.998,
-        "centsAlone": 0.00704,
-        "cents": 0.06738,
-        "centsAtOutput": 0.22652
+        "centsAlone": 0.00703,
+        "cents": -0.02701,
+        "centsAtOutput": -0.03231
       },
       {
         "string": 5,
         "note": "C3",
         "hz": 130.813,
-        "centsAlone": 0.0137,
-        "cents": 0.10364,
-        "centsAtOutput": 0.22909
+        "centsAlone": 0.01364,
+        "cents": -0.02353,
+        "centsAtOutput": 0.06913
       },
       {
         "string": 6,
         "note": "E♭4",
         "hz": 311.127,
-        "centsAlone": -0.00578,
-        "cents": 0.02045,
-        "centsAtOutput": 0.2987
+        "centsAlone": -0.0059,
+        "cents": -0.0018,
+        "centsAtOutput": 0.16801
       },
       {
         "string": 7,
         "note": "B♭3",
         "hz": 233.082,
-        "centsAlone": 0.00604,
-        "cents": 0.11552,
-        "centsAtOutput": 0.30106
+        "centsAlone": 0.00599,
+        "cents": -0.04285,
+        "centsAtOutput": 0.05775
       },
       {
         "string": 8,
         "note": "F4",
         "hz": 349.228,
-        "centsAlone": -0.00446,
-        "cents": 0.0127,
-        "centsAtOutput": 0.22806
+        "centsAlone": -0.00466,
+        "cents": -0.07263,
+        "centsAtOutput": 0.08436
       },
       {
         "string": 9,
         "note": "C4",
         "hz": 261.626,
-        "centsAlone": 0.00525,
-        "cents": 0.02954,
-        "centsAtOutput": 0.33921
+        "centsAlone": 0.00507,
+        "cents": -0.01949,
+        "centsAtOutput": 0.14792
       },
       {
         "string": 10,
         "note": "G3",
         "hz": 195.998,
-        "centsAlone": 0.00799,
-        "cents": 0.07289,
-        "centsAtOutput": 0.64682
+        "centsAlone": 0.00797,
+        "cents": -0.0329,
+        "centsAtOutput": -0.0926
       },
       {
         "string": 11,
         "note": "D4",
         "hz": 293.665,
-        "centsAlone": -0.00069,
-        "cents": -0.00798,
-        "centsAtOutput": 0.56495
+        "centsAlone": -0.00077,
+        "cents": -0.00471,
+        "centsAtOutput": 0.2293
       },
       {
         "string": 12,
         "note": "A3",
         "hz": 220,
-        "centsAlone": 0.00548,
-        "cents": 0.13127,
-        "centsAtOutput": 0.28564
+        "centsAlone": 0.0054,
+        "cents": -0.04556,
+        "centsAtOutput": 0.04325
       },
       {
         "string": 13,
         "note": "E4",
         "hz": 329.628,
-        "centsAlone": -0.00425,
-        "cents": -0.00108,
-        "centsAtOutput": 0.26569
+        "centsAlone": -0.00434,
+        "cents": -0.01096,
+        "centsAtOutput": 0.17122
       },
       {
         "string": 14,
         "note": "B3",
         "hz": 246.942,
-        "centsAlone": 0.00913,
-        "cents": 0.09774,
-        "centsAtOutput": 0.30134
+        "centsAlone": 0.00911,
+        "cents": -0.04252,
+        "centsAtOutput": 0.06584
       },
       {
         "string": 15,
         "note": "F♯3",
         "hz": 184.997,
-        "centsAlone": 0.01462,
-        "cents": 0.16429,
-        "centsAtOutput": 0.20988
+        "centsAlone": 0.01457,
+        "cents": -0.07211,
+        "centsAtOutput": -0.01503
       },
       {
         "string": 16,
         "note": "C♯4",
         "hz": 277.183,
-        "centsAlone": 0.00138,
-        "cents": 0.06442,
-        "centsAtOutput": 0.34288
+        "centsAlone": 0.00128,
+        "cents": 0.00794,
+        "centsAtOutput": 0.1411
       },
       {
         "string": 17,
         "note": "G♯3",
         "hz": 207.652,
         "centsAlone": 0.00425,
-        "cents": 0.14225,
-        "centsAtOutput": 0.26731
+        "cents": -0.05263,
+        "centsAtOutput": 0.01863
       },
       {
         "string": 18,
         "note": "E♭3",
         "hz": 155.563,
         "centsAlone": 0.00895,
-        "cents": 0.23843,
-        "centsAtOutput": 0.10487
+        "cents": 0.00059,
+        "centsAtOutput": 0.12591
       },
       {
         "string": 19,
         "note": "B♭2",
         "hz": 116.541,
-        "centsAlone": 0.01699,
-        "cents": 0.00297,
-        "centsAtOutput": 0.00733
+        "centsAlone": 0.01698,
+        "cents": -0.24957,
+        "centsAtOutput": 0.53464
       },
       {
         "string": 20,
         "note": "F3",
         "hz": 174.614,
-        "centsAlone": 0.01547,
-        "cents": 0.15241,
-        "centsAtOutput": 0.17692
+        "centsAlone": 0.0154,
+        "cents": -0.08638,
+        "centsAtOutput": -0.00146
       },
       {
         "string": 21,
         "note": "C3",
         "hz": 130.813,
-        "centsAlone": 0.01503,
-        "cents": 0.11812,
-        "centsAtOutput": 0.38728
+        "centsAlone": 0.01496,
+        "cents": -0.02696,
+        "centsAtOutput": 0.15074
       },
       {
         "string": 22,
         "note": "G2",
         "hz": 97.999,
-        "centsAlone": 0.00668,
-        "cents": 0.00606,
-        "centsAtOutput": -0.02216
+        "centsAlone": 0.00656,
+        "cents": -0.26049,
+        "centsAtOutput": 0.61743
       },
       {
         "string": 23,
         "note": "D3",
         "hz": 146.832,
-        "centsAlone": 0.00588,
-        "cents": 0.24259,
-        "centsAtOutput": 0.05884
+        "centsAlone": 0.00585,
+        "cents": -0.0132,
+        "centsAtOutput": 0.13621
       },
       {
         "string": 24,
         "note": "A2",
         "hz": 110,
-        "centsAlone": 0.01188,
-        "cents": 0.00487,
-        "centsAtOutput": -0.00757
+        "centsAlone": 0.01184,
+        "cents": -0.25294,
+        "centsAtOutput": 0.56324
       },
       {
         "string": 25,
         "note": "E3",
         "hz": 164.814,
-        "centsAlone": 0.01359,
-        "cents": 0.23254,
-        "centsAtOutput": 0.14449
+        "centsAlone": 0.01361,
+        "cents": 0.01273,
+        "centsAtOutput": 0.12023
       },
       {
         "string": 26,
         "note": "B2",
         "hz": 123.471,
-        "centsAlone": 0.02116,
-        "cents": -0.00174,
-        "centsAtOutput": 0.03751
+        "centsAlone": 0.02115,
+        "cents": -0.24824,
+        "centsAtOutput": 0.52499
       },
       {
         "string": 27,
         "note": "F♯2",
         "hz": 92.499,
-        "centsAlone": 0.00617,
-        "cents": 0.00589,
-        "centsAtOutput": -0.01949
+        "centsAlone": 0.00601,
+        "cents": -0.26406,
+        "centsAtOutput": 0.65741
       },
       {
         "string": 28,
         "note": "C♯3",
         "hz": 138.591,
-        "centsAlone": 0.00619,
-        "cents": 0.24608,
-        "centsAtOutput": 0.00582
+        "centsAlone": 0.00612,
+        "cents": -0.0272,
+        "centsAtOutput": 0.15078
       },
       {
         "string": 29,
         "note": "G♯2",
         "hz": 103.826,
-        "centsAlone": 0.0084,
-        "cents": 0.00577,
-        "centsAtOutput": -0.01762
+        "centsAlone": 0.00832,
+        "cents": -0.25671,
+        "centsAtOutput": 0.59907
       },
       {
         "string": 30,
         "note": "F2",
         "hz": 87.307,
-        "centsAlone": 0.00486,
-        "cents": 0.00683,
-        "centsAtOutput": 0.00575
+        "centsAlone": 0.00471,
+        "cents": -0.24229,
+        "centsAtOutput": 0.54044
       },
       {
         "string": 31,
         "note": "E2",
         "hz": 82.407,
-        "centsAlone": -0.00052,
-        "cents": 0.03266,
-        "centsAtOutput": 0.03272
+        "centsAlone": -0.00064,
+        "cents": 0.03301,
+        "centsAtOutput": 0.03313
       },
       {
         "string": 32,
         "note": "E♭2",
         "hz": 77.782,
-        "centsAlone": -0.00996,
+        "centsAlone": -0.01008,
         "cents": -0.00278,
-        "centsAtOutput": -0.00288
+        "centsAtOutput": -0.00271
       },
       {
         "string": 33,
         "note": "D2",
         "hz": 73.416,
-        "centsAlone": -0.02062,
-        "cents": -0.02378,
-        "centsAtOutput": -0.02475
+        "centsAlone": -0.02077,
+        "cents": -0.02389,
+        "centsAtOutput": -0.02434
       },
       {
         "string": 34,
         "note": "C♯2",
         "hz": 69.296,
-        "centsAlone": -0.03101,
-        "cents": -0.03976,
-        "centsAtOutput": -0.04017
+        "centsAlone": -0.0312,
+        "cents": -0.03994,
+        "centsAtOutput": -0.03995
       },
       {
         "string": 35,
         "note": "C2",
         "hz": 65.406,
-        "centsAlone": -0.04071,
-        "cents": -0.05285,
-        "centsAtOutput": -0.05242
+        "centsAlone": -0.04095,
+        "cents": -0.0531,
+        "centsAtOutput": -0.05244
       },
       {
         "string": 36,
         "note": "B1",
         "hz": 61.735,
-        "centsAlone": -0.04976,
-        "cents": -0.06373,
-        "centsAtOutput": -0.06674
+        "centsAlone": -0.05007,
+        "cents": -0.0641,
+        "centsAtOutput": -0.06655
       },
       {
         "string": 37,
         "note": "B♭1",
         "hz": 58.27,
-        "centsAlone": -0.05829,
-        "cents": -0.07252,
-        "centsAtOutput": -0.07368
+        "centsAlone": -0.05867,
+        "cents": -0.07298,
+        "centsAtOutput": -0.07386
       },
       {
         "string": 38,
         "note": "A1",
         "hz": 55,
-        "centsAlone": -0.06662,
-        "cents": -0.07852,
-        "centsAtOutput": -0.07743
+        "centsAlone": -0.06708,
+        "cents": -0.07912,
+        "centsAtOutput": -0.07721
       },
       {
         "string": 39,
         "note": "G♯1",
         "hz": 51.913,
-        "centsAlone": -0.07524,
-        "cents": -0.08061,
-        "centsAtOutput": -0.08103
+        "centsAlone": -0.07579,
+        "cents": -0.08138,
+        "centsAtOutput": -0.08158
       },
       {
         "string": 40,
         "note": "G1",
         "hz": 48.999,
-        "centsAlone": -0.08499,
-        "cents": -0.07613,
-        "centsAtOutput": -0.07968
+        "centsAlone": -0.08563,
+        "cents": -0.07713,
+        "centsAtOutput": -0.0803
       },
       {
         "string": 41,
         "note": "F♯1",
         "hz": 46.249,
-        "centsAlone": -0.09718,
-        "cents": -0.05843,
-        "centsAtOutput": -0.06514
+        "centsAlone": -0.09791,
+        "cents": -0.05973,
+        "centsAtOutput": -0.06539
       },
       {
         "string": 42,
         "note": "F1",
         "hz": 43.654,
-        "centsAlone": -0.11297,
-        "cents": 0.00014,
-        "centsAtOutput": 0.00646
+        "centsAlone": -0.11382,
+        "cents": -0.00167,
+        "centsAtOutput": 0.00509
       }
     ]
   },
   "glide_44100": {
-    "cents": -0.006919107107230128,
+    "cents": -0.19047853959309885,
     "pass": true
   },
   "vibrato_44100": {
     "swingCents": 24.99927100320551,
-    "centsAfter": 0.00044742164602686003,
+    "centsAfter": 0.0002019259175761677,
     "pass": true
   },
   "stability_48000_r0.5": {
     "plucks": 11348,
     "outPeak": 1,
-    "preClipPeak": 2.70627361513227,
-    "peakString": 9.336901226456359,
+    "preClipPeak": 2.672901034080978,
+    "peakString": 9.337075234789785,
     "nan": false,
     "worstEnergyRise": 0,
     "t60": 14,
-    "t120": 30,
-    "tSleep": 33,
+    "t120": 29,
+    "tSleep": 30,
     "tailPeak": 0,
     "pass": true
   },
   "stability_48000_r1": {
     "plucks": 11348,
     "outPeak": 1,
-    "preClipPeak": 2.6105795804519043,
-    "peakString": 9.347808854304425,
+    "preClipPeak": 2.5765628209249307,
+    "peakString": 9.362759675647178,
     "nan": false,
     "worstEnergyRise": 0,
     "t60": 15,
-    "t120": 31,
-    "tSleep": 33,
+    "t120": 30,
+    "tSleep": 31,
     "tailPeak": 0,
     "pass": true
   },
   "stability_44100_r1": {
     "plucks": 11558,
     "outPeak": 1,
-    "preClipPeak": 2.7605894897515233,
-    "peakString": 8.816905600389138,
+    "preClipPeak": 2.7017337621279287,
+    "peakString": 8.881901320172933,
     "nan": false,
     "worstEnergyRise": 0,
-    "t60": 15.020408163265307,
-    "t120": 31.0421768707483,
-    "tSleep": 34.04625850340136,
+    "t60": 14.019047619047619,
+    "t120": 30.040816326530614,
+    "tSleep": 30.040816326530614,
+    "tailPeak": 0,
+    "pass": true
+  },
+  "retune_48000": {
+    "notes": 52,
+    "worstCents": -0.4715271944594337,
+    "pass": true
+  },
+  "voices_48000": {
+    "worstCents": -0.06413670037731702,
+    "pass": true
+  },
+  "stability_48000_r1_resonant": {
+    "plucks": 11348,
+    "outPeak": 1,
+    "preClipPeak": 2.518359405314754,
+    "peakString": 9.136545903860526,
+    "nan": false,
+    "worstEnergyRise": 0,
+    "t60": 21,
+    "t120": 44,
+    "tSleep": 44,
+    "tailPeak": 0,
+    "pass": true
+  },
+  "stability_48000_r1_brilliant": {
+    "plucks": 11348,
+    "outPeak": 1,
+    "preClipPeak": 3.4014417764119136,
+    "peakString": 11.626578190951683,
+    "nan": false,
+    "worstEnergyRise": 0,
+    "t60": 15,
+    "t120": 32,
+    "tSleep": 33,
     "tailPeak": 0,
     "pass": true
   },
@@ -750,50 +785,50 @@
     {
       "string": 2,
       "note": "A4",
-      "dB": -5.8
+      "dB": -7.2
     },
     {
       "string": 12,
       "note": "A3",
-      "dB": -16.5
+      "dB": -18.5
     },
     {
       "string": 24,
       "note": "A2",
-      "dB": -21.7
+      "dB": -21.8
     },
     {
       "string": 23,
       "note": "D3",
-      "dB": -31.6
+      "dB": -29.6
     },
     {
-      "string": 31,
-      "note": "E2",
-      "dB": -35.6
+      "string": 38,
+      "note": "A1",
+      "dB": -32.6
     }
   ],
   "performance_48000": {
-    "realtimeFactor": 14.383708436476514,
-    "meanBlockMs": 0.18539493333333326,
+    "realtimeFactor": 8.545141518794614,
+    "meanBlockMs": 0.3120681688888904,
     "budgetMs": 2.6666666666666665,
-    "p999Ms": 0.4738999999826774,
-    "maxMs": 4.025699999998324,
+    "p999Ms": 0.91370000000461,
+    "maxMs": 4.550099999993108,
     "blocksOverBudget": 1,
     "blocks": 11250,
     "pass": true
   },
   "performance_96000": {
-    "realtimeFactor": 7.430639991362653,
-    "meanBlockMs": 0.17943721333333265,
+    "realtimeFactor": 4.452210881105451,
+    "meanBlockMs": 0.2994766799999996,
     "budgetMs": 1.3333333333333333,
-    "p999Ms": 0.5495999999984633,
-    "maxMs": 0.8509999999951106,
-    "blocksOverBudget": 0,
+    "p999Ms": 0.9521999999997206,
+    "maxMs": 1.3926999999966938,
+    "blocksOverBudget": 1,
     "blocks": 22500,
     "pass": true
   },
   "allPassed": true,
   "node": "v24.15.0",
-  "date": "2026-11-17T05:00:13.073Z"
+  "date": "2026-11-17T06:12:56.900Z"
 }

@@ -1,7 +1,7 @@
 // Offline numerical checks of the string engine. Runs the exact file the
 // browser loads as an AudioWorklet.   node tools/verify.mjs [--quick]
 import '../web/worklet/zither-processor.js';
-import { STRINGS, FRETS, MELODY_COUNT, engineConfig, midiName } from '../web/js/zither-model.js';
+import { STRINGS, FRETS, MELODY_COUNT, engineConfig, midiName, setTuning, VOICES } from '../web/js/zither-model.js';
 import { writeFileSync } from 'node:fs';
 
 const Engine = globalThis.ZitherEngine;
@@ -140,9 +140,56 @@ function vibratoTest(sr) {
   return pass;
 }
 
+// ---- 2c. retuning at run time: Viennese fretboard at A = 443, sent to a running engine --------
+function retuneTest(sr) {
+  const freqs = setTuning('vienna', 443);
+  const rows = [];
+  for (let s = 0; s < STRINGS.length; s++) {
+    for (const fret of s < MELODY_COUNT ? [0, 7, 19] : [0]) {
+      setTuning('munich', 440);
+      const eng = new Engine(sr, engineConfig());          // starts in Munich tuning at 440 …
+      eng.pluck(s, 0.8, 0);
+      render(eng, 0.1);
+      eng.setTuning(freqs);                                // … and is retuned while the string rings
+      render(eng, 0.3);
+      eng.pluck(s, 0.8, fret);
+      const total = Math.ceil(2.5 * sr / BLOCK) * BLOCK, tap = new Float64Array(total);
+      render(eng, 2.5, (L, R, b) => { const base = s * eng.BUF; for (let k = 0; k < BLOCK; k++) tap[b * BLOCK + k] = eng.buf[base + ((eng.w - BLOCK + k) & eng.MASK)]; });
+      rows.push({ s, fret, f: freqs[s] * Math.pow(2, fret / 12), c: measureCents(tap, sr, freqs[s] * Math.pow(2, fret / 12)).cents });
+    }
+  }
+  setTuning('munich', 440);
+  const worst = rows.reduce((a, r) => (Math.abs(r.c) > Math.abs(a.c) ? r : a));
+  const pass = Math.abs(worst.c) < 1;
+  console.log(`\n[retune @ ${sr} Hz] Viennese fretboard, A = 443, sent to a running engine: ${rows.length} notes, worst ${worst.c.toFixed(4)} cents (string ${worst.s + 1} fret ${worst.fret}, ${worst.f.toFixed(2)} Hz)  => ${pass ? 'PASS' : 'FAIL'}`);
+  report['retune_' + sr] = { notes: rows.length, worstCents: worst.c, pass };
+  return pass;
+}
+
+// ---- 2d. sound presets keep every string in tune ---------------------------------------
+function voiceTuningTest(sr) {
+  let worst = 0, where = '';
+  for (const v of Object.values(VOICES)) {
+    for (const s of [0, 4, 10, 20, 35, 41]) {
+      const cfg = engineConfig(); cfg.voice = v;
+      const eng = new Engine(sr, cfg);
+      eng.pluck(s, 0.8, 0);
+      const total = Math.ceil(2.5 * sr / BLOCK) * BLOCK, tap = new Float64Array(total);
+      render(eng, 2.5, (L, R, b) => { const base = s * eng.BUF; for (let k = 0; k < BLOCK; k++) tap[b * BLOCK + k] = eng.buf[base + ((eng.w - BLOCK + k) & eng.MASK)]; });
+      const c = measureCents(tap, sr, STRINGS[s].freq).cents;
+      if (Math.abs(c) > Math.abs(worst)) { worst = c; where = `${v.name}, string ${s + 1}`; }
+    }
+  }
+  const pass = Math.abs(worst) < 1;
+  console.log(`\n[sound presets @ ${sr} Hz] ${Object.keys(VOICES).length} presets × 6 strings: worst ${worst.toFixed(4)} cents (${where})  => ${pass ? 'PASS' : 'FAIL'}`);
+  report['voices_' + sr] = { worstCents: worst, pass };
+  return pass;
+}
+
 // ---- 3. stability -------------------------------------------------------------
-function stabilityTest(sr, resonance) {
+function stabilityTest(sr, resonance, voice) {
   const cfg = engineConfig(); cfg.resonance = resonance;
+  if (voice) cfg.voice = voice;
   const eng = new Engine(sr, cfg);
   let seed = 12345;
   const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
@@ -189,12 +236,12 @@ function stabilityTest(sr, resonance) {
     }
   });
   const pass = !nan && outPeak <= 1.0000001 && worstRise <= 1e-9 && tailPeak === 0 && eng.asleep;
-  console.log(`\n[stability @ ${sr} Hz, resonance ${resonance}]  ${plucks} full-force plucks over ${playSec + (quick ? 3 : 10)} s on all ${N} strings`);
+  console.log(`\n[stability @ ${sr} Hz, resonance ${resonance}${voice ? ', ' + voice.name + ' sound' : ''}]  ${plucks} full-force plucks over ${playSec + (quick ? 3 : 10)} s on all ${N} strings`);
   console.log(`  output peak (after soft clip): ${outPeak.toFixed(4)}   before clip: ${peakInternal.toFixed(2)}   largest string sample: ${peakString.toFixed(2)}   NaN/Inf: ${nan ? 'YES' : 'none'}`);
   console.log(`  after release: largest rise in stored energy from one second to the next: ${(worstRise * 100).toExponential(2)} %  (must be <= 0)`);
   console.log(`  energy -60 dB after ${t60?.toFixed(1)} s, -120 dB after ${t120?.toFixed(1)} s, engine fully silent (asleep) after ${tSleep?.toFixed(1)} s; last-second output peak ${tailPeak}`);
   console.log(`  => ${pass ? 'PASS' : 'FAIL'}`);
-  report[`stability_${sr}_r${resonance}`] = { plucks, outPeak, preClipPeak: peakInternal, peakString, nan, worstEnergyRise: worstRise, t60, t120, tSleep, tailPeak, pass };
+  report[`stability_${sr}_r${resonance}${voice ? '_' + voice.name : ''}`] = { plucks, outPeak, preClipPeak: peakInternal, peakString, nan, worstEnergyRise: worstRise, t60, t120, tSleep, tailPeak, pass };
   return pass;
 }
 
@@ -257,6 +304,10 @@ for (const sr of [48000, 44100]) { ok = tuningTest(sr) && ok; ok = glideTest(sr)
 ok = stabilityTest(48000, 0.5) && ok;
 ok = stabilityTest(48000, 1.0) && ok;
 ok = stabilityTest(44100, 1.0) && ok;
+ok = retuneTest(48000) && ok;
+ok = voiceTuningTest(48000) && ok;
+ok = stabilityTest(48000, 1.0, VOICES.resonant) && ok;
+ok = stabilityTest(48000, 1.0, VOICES.brilliant) && ok;
 sympatheticTest(48000);
 balanceTest(48000);
 ok = perfTest(48000) && ok;
