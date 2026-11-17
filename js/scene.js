@@ -86,6 +86,15 @@ export class ZitherScene {
     this.view = { az: 0, el: 1.2, zoom: 1 }; this.viewTarget = { az: 0, el: 1.2, zoom: 1 };
     this.viewName = 'play'; this.orbiting = false;
     this.time = 0; this.mirror = false;
+    // the part of the instrument the camera frames (model mm): whole body, fretboard, or open strings
+    this.zones = {
+      all: { x0: -16, x1: L + 16, d0: -14, d1: D + 14, y0: -H, y1: 16 },
+      frets: { x0: GEOM.nutX - 16, x1: GEOM.melodyBridgeX + 12, d0: 2, d1: 76, y0: 4, y1: 12 },
+      // accompaniment and bass only: the 24 strings chords are played on
+      chords: { x0: 205, x1: GEOM.openX1 + 8, d0: GEOM.openD0 - 6, d1: STRINGS[28].d + 6, y0: 4, y1: 12 },
+      strings: { x0: 56, x1: GEOM.openX1 + 8, d0: GEOM.openD0 - 6, d1: STRINGS[N_STRINGS - 1].d + 6, y0: 4, y1: 12 },
+    };
+    this.box = { ...this.zones.all }; this.boxTarget = { ...this.zones.all }; this.focusName = 'all';
 
     this._environment();
     this._lights();
@@ -434,7 +443,13 @@ export class ZitherScene {
 
   flash(string, strength = 1) { const st = this.strings[string]; if (st) st.flash = Math.max(st.flash, strength); }
 
-  setMirror(on) { this.mirror = !!on; this.inst.scale.x = on ? -1 : 1; this.labels.scale.x = on ? -1 : 1; }
+  setMirror(on) { this.mirror = !!on; this.inst.scale.x = on ? -1 : 1; this.labels.scale.x = on ? -1 : 1; this._camera(); }
+  /** Frame the whole instrument ('all'), the fretboard ('frets') or the open strings ('strings'). */
+  setFocus(name, instant = false) {
+    this.focusName = this.zones[name] ? name : 'all';
+    this.boxTarget = { ...this.zones[this.focusName] };
+    if (instant) { this.box = { ...this.boxTarget }; this._camera(); }
+  }
   setLabels(on) { this.labels.visible = !!on; }
   setInsets(top, bottom) { this.insets = { top, bottom }; this.resize(); }
 
@@ -468,15 +483,17 @@ export class ZitherScene {
     const hEff = Math.max(120, h - this.insets.top - this.insets.bottom);
     const { az, el, zoom } = this.view;
     const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
-    const target = new THREE.Vector3(0, -8, -6);
+    const bx = this.box, mx = this.mirror ? -1 : 1;
+    const cx = mx * ((bx.x0 + bx.x1) / 2 - L / 2), cz = D / 2 - (bx.d0 + bx.d1) / 2;
+    const target = new THREE.Vector3(cx, (bx.y0 + bx.y1) / 2, cz);
     const fovEff = 26 * Math.PI / 180, tanV = Math.tan(fovEff / 2), tanH = tanV * w / hEff;
     // camera basis
     const fwd = dir.clone().negate(), right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
     const up = new THREE.Vector3().crossVectors(right, fwd);
     let dist = 0;
-    const hx = L / 2 + 16, hz = D / 2 + 14;
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const y of [-H, 16]) {
-      const p = new THREE.Vector3(sx * hx, y, sz * hz).sub(target);
+    const hx = (bx.x1 - bx.x0) / 2, hz = (bx.d1 - bx.d0) / 2;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const y of [bx.y0, bx.y1]) {
+      const p = new THREE.Vector3(cx + sx * hx, y, cz + sz * hz).sub(target);
       const a = p.dot(right), b = p.dot(up), c = p.dot(fwd);      // camera-space offsets
       dist = Math.max(dist, Math.abs(a) / tanH - c, Math.abs(b) / tanV - c);
     }
@@ -548,7 +565,9 @@ export class ZitherScene {
     this.time += dt;
     const v = this.view, t = this.viewTarget, k = 1 - Math.exp(-dt * 5);
     if (this.orbiting) t.az = -0.5 + 0.45 * Math.sin(this.time * 0.11);
-    if (Math.abs(v.az - t.az) + Math.abs(v.el - t.el) + Math.abs(v.zoom - t.zoom) > 1e-4) {
+    let moved = 0;
+    for (const key in this.box) { const dlt = this.boxTarget[key] - this.box[key]; if (Math.abs(dlt) > 0.05) { this.box[key] += dlt * k; moved = 1; } else this.box[key] = this.boxTarget[key]; }
+    if (moved || Math.abs(v.az - t.az) + Math.abs(v.el - t.el) + Math.abs(v.zoom - t.zoom) > 1e-4) {
       v.az += (t.az - v.az) * k; v.el += (t.el - v.el) * k; v.zoom += (t.zoom - v.zoom) * k;
       this._camera();
     }

@@ -2,7 +2,7 @@
 import { STRINGS, MELODY_COUNT, N_STRINGS, GROUP_START, CHORD_ROOTS, PC_NAMES, chordStrings, chordName, placeMelodyNote } from './zither-model.js';
 import { ZitherScene } from './scene.js';
 import { ZitherAudio } from './audio.js';
-import { ZitherInput } from './input.js';
+import { ZitherInput, startTremolo } from './input.js';
 import { SongPlayer } from './player.js';
 import { SONGS, ACCURACY } from './songs.js';
 
@@ -15,6 +15,7 @@ const KEY = 'concertzither.settings.v1';
 const settings = Object.assign({
   mirror: false, labels: true, tapSounds: true, autoPluck: true, volume: 0.8, reverb: 0.22, resonance: 0.5,
   quality: 'maj', pattern: 'oompah', view: 'play', tempo: 100, song: null,
+  focus: 'all', latch: false, chordBpm: 108, vibrato: true,
 }, (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch (e) { /* private mode */ } };
 
@@ -34,7 +35,9 @@ audio.onLevels = (lv) => scene.setLevels(lv);
 
 scene.setMirror(settings.mirror);
 scene.setLabels(settings.labels);
-scene.setView(settings.view, true);
+scene.setView(settings.focus === 'all' ? settings.view : 'top', true);
+scene.setFocus(settings.focus, true);
+player.vibrato = settings.vibrato;
 
 function layout() {
   const top = $('topbar').getBoundingClientRect(), bottom = $('chordbar').getBoundingClientRect();
@@ -99,14 +102,17 @@ audio.onState = (state) => { if (state === 'interrupted' || state === 'suspended
 const RED = new Set([5, 9, 1]);
 const KEYS = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']'];
 const rootsEl = $('roots');
-let currentRoot = null, chordTimers = [];
+let currentRoot = null, chordTimers = [], chordLoop = null;
+const holds = new Set();          // chord buttons and keys currently held down
 CHORD_ROOTS.forEach((pc, i) => {
   const b = document.createElement('button');
   b.className = 'root' + (RED.has(pc) ? ' red' : '');
   b.dataset.pc = pc;
   b.innerHTML = `${PC_NAMES[pc]}<small>${KEYS[i]}</small>`;
   b.title = `${PC_NAMES[pc]} chord — key ${KEYS[i]}`;
-  b.addEventListener('pointerdown', (e) => { e.preventDefault(); pressChord(pc); });
+  // hold the button to keep the pattern going; it stops at the end of the bar after you let go
+  b.addEventListener('pointerdown', (e) => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } holds.add('p' + e.pointerId); pressChord(pc); });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(ev, (e) => holds.delete('p' + e.pointerId));
   rootsEl.appendChild(b);
 });
 
@@ -119,28 +125,52 @@ function showChord(pc, quality) {
   markRoot(pc);
   return cs;
 }
-function pluckAt(string, vel, delay, fret) {
-  const t = audio.now + 0.01 + delay;
-  audio.pluck(string, vel, fret, t);
-  chordTimers.push(setTimeout(() => scene.flash(string), delay * 1000));
+function pluckTime(string, vel, time, fret) {
+  if (string < 0) return;
+  audio.pluck(string, vel, fret, time);
+  if (chordTimers.length > 200) chordTimers = [];
+  chordTimers.push(setTimeout(() => scene.flash(string), Math.max(0, (time - audio.now) * 1000)));
 }
-function strum(strings, vel, delay, spread = 0.014) { strings.forEach((s, k) => pluckAt(s, vel, delay + k * spread)); }
+function pluckAt(string, vel, delay, fret) { pluckTime(string, vel, audio.now + 0.01 + delay, fret); }
+function strumAt(strings, vel, time, spread = 0.014) { strings.forEach((s, k) => pluckTime(s, vel, time + k * spread)); }
 
-/** Select a chord; with auto-pluck on, play it in the chosen pattern. */
+function stopChordLoop() { if (chordLoop) { clearTimeout(chordLoop.timer); chordLoop = null; } }
+
+/** Play one bar of a pattern at audio time t; returns the bar length in seconds. */
+function playBar(p, t, bar) {
+  const cs = chordStrings(currentRoot, settings.quality), beat = 60 / settings.chordBpm;
+  const bass = bar % 2 ? cs.altBass : cs.bass;            // alternate root and fifth, bar by bar
+  if (p === 'together') { pluckTime(cs.bass, 0.7, t); if (!bar) pluckTime(cs.contra, 0.45, t); strumAt(cs.acc, 0.55, t + 0.012); return 2 * beat; }
+  if (p === 'oompah') { pluckTime(bass, 0.72, t); if (bar % 2 === 0) pluckTime(cs.contra, 0.42, t); strumAt(cs.acc, 0.52, t + beat); return 2 * beat; }
+  if (p === 'waltz') { pluckTime(bass, 0.72, t); if (bar % 2 === 0) pluckTime(cs.contra, 0.42, t); strumAt(cs.acc, 0.5, t + beat); strumAt(cs.acc, 0.46, t + 2 * beat); return 3 * beat; }
+  pluckTime(bass, 0.7, t);
+  [...cs.acc, cs.acc[1], cs.acc[cs.acc.length - 1]].slice(0, 5).forEach((s, k) => pluckTime(s, 0.52, t + (k + 1) * beat / 2));
+  return 3 * beat;
+}
+function chordTick() {
+  const lp = chordLoop; if (!lp) return;
+  lp.t += playBar(lp.pattern, lp.t, lp.bar++);
+  lp.timer = setTimeout(() => {
+    if (chordLoop !== lp) return;
+    if (holds.size || settings.latch) chordTick(); else chordLoop = null;
+  }, Math.max(0, (lp.t - audio.now - 0.09) * 1000));
+}
+
+/** Select a chord; with auto-pluck on, play it in the chosen pattern. Held (or latched) it keeps going. */
 async function pressChord(pc, opts = {}) {
+  const again = chordLoop && currentRoot === pc && settings.latch && !opts.force;
   currentRoot = pc;
-  const cs = showChord(pc, settings.quality);
+  showChord(pc, settings.quality);
   if (!(await startAudio())) return;
+  if (again) { stopChordLoop(); return; }                 // latched: pressing the sounding chord again stops it
   if (!settings.autoPluck && !opts.force) return;
-  chordTimers.forEach(clearTimeout); chordTimers = [];
-  const p = opts.pattern || settings.pattern;
-  if (p === 'together') { pluckAt(cs.bass, 0.7, 0); pluckAt(cs.contra, 0.45, 0); strum(cs.acc, 0.55, 0.012); }
-  else if (p === 'oompah') { pluckAt(cs.bass, 0.72, 0); pluckAt(cs.contra, 0.45, 0); strum(cs.acc, 0.52, 0.3); }
-  else if (p === 'waltz') { pluckAt(cs.bass, 0.72, 0); pluckAt(cs.contra, 0.45, 0); strum(cs.acc, 0.5, 0.36); strum(cs.acc, 0.46, 0.72); }
-  else if (p === 'arp') { pluckAt(cs.bass, 0.7, 0); [...cs.acc, cs.acc[1], cs.acc[cs.acc.length - 1]].forEach((s, k) => pluckAt(s, 0.52, 0.18 * (k + 1))); }
-  else if (p === 'bass') pluckAt(cs.bass, 0.75, 0);
-  else if (p === 'alt') pluckAt(cs.altBass, 0.7, 0);
-  else if (p === 'chord') strum(cs.acc, 0.58, 0);
+  const p = opts.pattern || settings.pattern, cs = chordStrings(pc, settings.quality), now = audio.now + 0.02;
+  if (p === 'bass') { pluckTime(cs.bass, 0.75, now); return; }
+  if (p === 'alt') { pluckTime(cs.altBass, 0.7, now); return; }
+  if (p === 'chord') { strumAt(cs.acc, 0.58, now); return; }
+  stopChordLoop();
+  chordLoop = { pattern: p, t: now, bar: 0, timer: 0 };
+  chordTick();
 }
 
 function segmented(el, attr, key, onChange) {
@@ -157,8 +187,12 @@ const autoBtn = $('autoBtn');
 const syncAuto = () => autoBtn.setAttribute('aria-pressed', String(settings.autoPluck));
 autoBtn.addEventListener('click', () => { settings.autoPluck = !settings.autoPluck; save(); syncAuto(); toast(settings.autoPluck ? 'Auto-pluck on: choosing a chord plays it.' : 'Auto-pluck off: chords are only highlighted — pluck the lit strings yourself.'); });
 syncAuto();
-function dampAll() { audio.dampAll(); scene.setHints([]); markRoot(null); currentRoot = null; }
+function dampAll() { stopChordLoop(); audio.dampAll(); scene.setHints([]); markRoot(null); currentRoot = null; }
 $('dampBtn').addEventListener('click', dampAll);
+const latchBtn = $('latchBtn');
+const syncLatch = () => latchBtn.setAttribute('aria-pressed', String(settings.latch));
+latchBtn.addEventListener('click', () => { settings.latch = !settings.latch; save(); syncLatch(); if (!settings.latch && !holds.size) stopChordLoop(); toast(settings.latch ? 'Latch on: a chord keeps playing until you press it again, choose another, or press Damp.' : 'Latch off: a chord keeps playing only while you hold its button.'); });
+syncLatch();
 
 // glissando over a whole group of open strings
 function gliss(up) {
@@ -178,8 +212,12 @@ window.addEventListener('keydown', async (e) => {
   if (e.target instanceof HTMLInputElement && e.target.type !== 'range' && e.target.type !== 'checkbox') return;
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   const ci = KEYS.indexOf(k.toUpperCase());
-  if (ci >= 0) { e.preventDefault(); pressChord(CHORD_ROOTS[ci]); return; }
+  if (ci >= 0) { e.preventDefault(); holds.add('k' + k); pressChord(CHORD_ROOTS[ci]); return; }
+  if (k === 'F2') { e.preventDefault(); cycleZoom(); return; }
   if (k === '1' || k === '2' || k === '3') { settings.quality = ['maj', 'min', 'dom7'][+k - 1]; save(); syncQuality(); if (currentRoot != null) showChord(currentRoot, settings.quality); return; }
+  if (k === 'F1') { e.preventDefault(); togglePanel('manual'); return; }
+  if (k === 'Escape' && !$('manual').hidden) { closePanels(); return; }
+  if (!$('manual').hidden && k !== 'Enter') return;      // do not play notes while reading
   if (k === 'Enter') { e.preventDefault(); togglePlay(); return; }
   if (k === 'Escape') { closePanels(); if (audio.ready) dampAll(); return; }
   if (k === 'm') { setMirror(!settings.mirror); return; }
@@ -187,11 +225,15 @@ window.addEventListener('keydown', async (e) => {
   if (k in MELODY_KEYS) {
     const busy = new Set([...heldKeys.values()].map((v) => v.string));
     const place = placeMelodyNote(MELODY_KEYS[k] + 12, busy, 7);
-    if (place) { heldKeys.set(k, place); audio.pluck(place.string, 0.82, place.fret); scene.setFinger(place.string, place.fret, 'user'); scene.flash(place.string); }
+    if (place) {
+      heldKeys.set(k, place); audio.pluck(place.string, 0.82, place.fret); scene.setFinger(place.string, place.fret, 'user'); scene.flash(place.string);
+      if (e.shiftKey) place.stop = startTremolo(audio, scene, place.string, () => place.fret);     // Shift: tremolo while held
+      else if (settings.vibrato) audio.vibrato(place.string, 0.16, 5.5, 0.35);
+    }
     return;
   }
   const root = currentRoot == null ? 0 : currentRoot;
-  if (k === ' ') { e.preventDefault(); pressChord(root, { force: true }); }
+  if (k === ' ') { e.preventDefault(); holds.add('k '); pressChord(root, { force: true }); }
   else if (k === 'z') pressChord(root, { force: true, pattern: 'bass' });
   else if (k === 'x') pressChord(root, { force: true, pattern: 'chord' });
   else if (k === 'c') pressChord(root, { force: true, pattern: 'alt' });
@@ -201,7 +243,9 @@ window.addEventListener('keydown', async (e) => {
 });
 window.addEventListener('keyup', (e) => {
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  holds.delete('k' + k);
   const held = heldKeys.get(k);
+  if (held && held.stop) held.stop();
   if (held) { heldKeys.delete(k); scene.setFinger(held.string, 0, 'user'); audio.damp(held.string); }
 });
 
@@ -267,10 +311,13 @@ tempo.value = settings.tempo; $('tempoOut').textContent = settings.tempo + '%';
 tempo.addEventListener('input', () => { settings.tempo = +tempo.value; $('tempoOut').textContent = settings.tempo + '%'; player.setTempoScale(settings.tempo / 100); save(); });
 
 // ---- panels and settings ---------------------------------------------------------------------------
-function closePanels() { $('library').hidden = true; $('settings').hidden = true; }
+function closePanels() { $('library').hidden = true; $('settings').hidden = true; $('manual').hidden = true; }
 function togglePanel(id) { const el = $(id), open = el.hidden; closePanels(); el.hidden = !open; }
 $('songBtn').addEventListener('click', () => togglePanel('library'));
 $('settingsBtn').addEventListener('click', () => togglePanel('settings'));
+$('manualBtn').addEventListener('click', () => togglePanel('manual'));
+// contents links scroll inside the manual instead of changing the page address
+for (const a of document.querySelectorAll('#manual .toc a')) a.addEventListener('click', (e) => { e.preventDefault(); const t = document.querySelector(a.getAttribute('href')); if (t) t.scrollIntoView({ block: 'start' }); });
 for (const b of document.querySelectorAll('[data-close]')) b.addEventListener('click', closePanels);
 canvas.addEventListener('pointerdown', closePanels);
 
@@ -278,8 +325,25 @@ for (const b of document.querySelectorAll('.views .chip')) {
   b.classList.toggle('active', b.dataset.view === settings.view);
   b.addEventListener('click', () => {
     settings.view = b.dataset.view; save(); scene.setView(settings.view);
+    if (settings.focus !== 'all') { settings.focus = 'all'; save(); scene.setFocus('all'); $('zoomBtn').textContent = ZOOM_LABEL.all; $('zoomBtn').classList.remove('active'); }
     for (const o of document.querySelectorAll('.views .chip')) o.classList.toggle('active', o === b);
   });
+}
+const ZOOMS = ['all', 'frets', 'chords', 'strings'], ZOOM_LABEL = { all: 'Zoom: All', frets: 'Zoom: Frets', chords: 'Zoom: Chords', strings: 'Zoom: Strings' };
+function setZoom(name) {
+  settings.focus = name; save();
+  scene.setFocus(name);
+  scene.setView(name === 'all' ? settings.view : 'top');       // zoomed zones are shown from above, where spacing is widest
+  $('zoomBtn').textContent = ZOOM_LABEL[name];
+  $('zoomBtn').classList.toggle('active', name !== 'all');
+}
+function cycleZoom() { setZoom(ZOOMS[(ZOOMS.indexOf(settings.focus) + 1) % ZOOMS.length]); }
+$('zoomBtn').addEventListener('click', cycleZoom);
+$('zoomBtn').textContent = ZOOM_LABEL[settings.focus]; $('zoomBtn').classList.toggle('active', settings.focus !== 'all');
+{
+  const el = $('chordBpm'), out = $('chordBpmOut');
+  el.value = settings.chordBpm; out.textContent = settings.chordBpm;
+  el.addEventListener('input', () => { settings.chordBpm = +el.value; out.textContent = el.value; save(); });
 }
 function slider(id, key, apply) {
   const el = $(id); el.value = Math.round(settings[key] * 100);
@@ -296,6 +360,7 @@ function checkbox(id, key, apply) {
 checkbox('mirror', 'mirror', (v) => scene.setMirror(v));
 checkbox('labels', 'labels', (v) => scene.setLabels(v));
 checkbox('tapSounds', 'tapSounds');
+checkbox('vibrato', 'vibrato', (v) => { player.vibrato = v; });
 
 // restore the last piece (without playing it)
 {

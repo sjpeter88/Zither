@@ -2,6 +2,19 @@
 // hand can hold frets while the other plucks, strums or sweeps a glissando.
 import { STRINGS, GEOM, FRETS, fretX, N_STRINGS, MELODY_COUNT } from './zither-model.js';
 
+/** Tremolo: rapid repeated plucks of one string. Returns a function that stops it. */
+export function startTremolo(audio, scene, string, getFret, rate = 11) {
+  let next = audio.now + 0.02, k = 0;
+  const tick = () => {
+    if (next < audio.now) next = audio.now + 0.01;
+    while (next < audio.now + 0.12) { audio.pluck(string, k % 2 ? 0.5 : 0.63, getFret(), next); next += 1 / rate; k++; }
+    scene.flash(string, 0.6);
+  };
+  tick();
+  const id = setInterval(tick, 40);
+  return () => clearInterval(id);
+}
+
 export class ZitherInput {
   constructor(canvas, scene, audio, options) {
     this.canvas = canvas; this.scene = scene; this.audio = audio;
@@ -46,7 +59,7 @@ export class ZitherInput {
       return;
     }
     if (pk.zone === 'fret') {
-      p.mode = 'fret'; p.string = pk.string; p.fret = pk.fret; p.d0 = pk.d; p.bend = 0;
+      p.mode = 'fret'; p.string = pk.string; p.fret = pk.fret; p.d0 = pk.d; p.bend = 0; p.xRef = pk.x;
       const f = this.heldFret(pk.string);
       this.scene.setFinger(pk.string, f, 'user');
       if (p.mouse || this.opt.tapSounds) { this.audio.pluck(pk.string, p.mouse ? 0.85 : 0.72, f); this.scene.flash(pk.string); }
@@ -63,7 +76,17 @@ export class ZitherInput {
     this.audio.pluck(string, vel, fret);
     this.scene.flash(string);
     p.lastString = string; p.lastT = performance.now();
+    // resting on the string after plucking it turns into a tremolo
+    this._stopTremolo(p);
+    p.tremTimer = setTimeout(() => {
+      p.tremStop = startTremolo(this.audio, this.scene, string, () => (string < MELODY_COUNT ? this.heldFret(string) : undefined));
+    }, 320);
     if (this.onPlay) this.onPlay();
+  }
+
+  _stopTremolo(p) {
+    clearTimeout(p.tremTimer);
+    if (p.tremStop) { p.tremStop(); p.tremStop = null; }
   }
 
   move(e) {
@@ -79,14 +102,16 @@ export class ZitherInput {
         // along the string: slide from fret to fret without re-plucking
         const f = loc.x >= GEOM.pluckX0 ? FRETS : this._fretAt(loc.x);
         if (f !== p.fret) {
-          p.fret = f;
+          p.fret = f; p.xRef = loc.x;
           const held = this.heldFret(p.string);
           this.audio.setFret(p.string, held, 0);
           this.scene.setFinger(p.string, held, 'user');
         }
         // across the string: push it sideways to bend the note up
         const side = Math.abs(loc.d - STRINGS[p.string].d);
-        const bend = Math.min(2, Math.max(0, side - 4) / 11);
+        // rocking the fingertip along the string inside the fret: vibrato
+        const dx = loc.x - p.xRef, rock = Math.sign(dx) * Math.min(1, Math.max(0, Math.abs(dx) - 1.2) / 7) * 0.3;
+        const bend = Math.min(2, Math.max(0, side - 4) / 11) + rock;
         if (Math.abs(bend - p.bend) > 0.01) { p.bend = bend; this.audio.bend(p.string, bend); }
       }
     } else if (p.mode === 'strum') {
@@ -120,6 +145,7 @@ export class ZitherInput {
     const p = this.pointers.get(e.pointerId);
     if (!p) return;
     this.pointers.delete(e.pointerId);
+    this._stopTremolo(p);
     if (p.mode === 'fret') {
       const held = this.heldFret(p.string);
       this.scene.setFinger(p.string, held, 'user');

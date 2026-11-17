@@ -94,6 +94,7 @@ export class ZitherAudio {
   pluck(s, vel = 0.8, fret, time) { this._post({ type: 'pluck', s, vel, fret, time }); }
   setFret(s, fret, hammer = 0, time) { this._post({ type: 'fret', s, fret, hammer, time }); }
   bend(s, semis) { this._post({ type: 'bend', s, semis }); }
+  vibrato(s, depth, rate = 5.5, delay = 0.2, time) { this._post({ type: 'vib', s, depth, rate, delay, time }); }
   damp(s, time) { this._post({ type: 'damp', s, time }); }
   dampAll() { this._post({ type: 'dampAll' }); }
   flush() { this._post({ type: 'flush' }); }

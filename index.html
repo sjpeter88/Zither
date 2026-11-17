@@ -59,6 +59,12 @@
     <button data-view="show" class="chip" title="Showcase view">Show</button>
   </div>
 
+  <button id="zoomBtn" class="chip" title="Zoom in on the fretboard or the open strings (F2)">Zoom: All</button>
+
+  <button id="manualBtn" class="chip manual-btn" title="User's manual (F1)" aria-haspopup="dialog" aria-controls="manual">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6c-2-1.5-5-2-8-2v14c3 0 6 .5 8 2 2-1.5 5-2 8-2V4c-3 0-6 .5-8 2zM12 6v14"/></svg><span>Manual</span>
+  </button>
+
   <button id="settingsBtn" class="icon" title="Settings" aria-label="Settings" aria-haspopup="dialog" aria-controls="settings">
     <svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
   </button>
@@ -75,6 +81,8 @@
   <label class="row"><span>Volume</span><input id="volume" type="range" min="0" max="100"></label>
   <label class="row"><span>Room</span><input id="reverb" type="range" min="0" max="100"></label>
   <label class="row"><span>Sympathetic resonance</span><input id="resonance" type="range" min="0" max="100"></label>
+  <label class="row"><span>Chord pattern tempo <output id="chordBpmOut"></output> bpm</span><input id="chordBpm" type="range" min="60" max="180"></label>
+  <label class="row switch"><span>Vibrato on long notes (songs and keyboard)</span><input id="vibrato" type="checkbox"><i></i></label>
   <label class="row switch"><span>Mirror instrument (left-handed)</span><input id="mirror" type="checkbox"><i></i></label>
   <label class="row switch"><span>Note names under the strings</span><input id="labels" type="checkbox"><i></i></label>
   <label class="row switch"><span>Touching a fret sounds the note</span><input id="tapSounds" type="checkbox"><i></i></label>
@@ -82,9 +90,129 @@
     <h3>Playing</h3>
     <p><b>Touch:</b> hold a fret with one hand and pluck the same string near the bridge with the other. Drag along a string to slide, across it to bend. Sweep across the open strings for a glissando.</p>
     <p><b>Mouse:</b> click a fret or string to play it; drag across strings to strum. Drag the background to turn the view, wheel to zoom.</p>
-    <p><b>Keys:</b> <kbd>Q</kbd>–<kbd>]</kbd> chords in string order · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> major, minor, 7th · <kbd>Space</kbd> bass + chord · <kbd>Z</kbd> bass · <kbd>X</kbd> chord · <kbd>C</kbd> alternate bass · <kbd>V</kbd> arpeggio · <kbd>↑</kbd> <kbd>↓</kbd> glissando · <kbd>A</kbd>–<kbd>'</kbd> melody · <kbd>Enter</kbd> play/pause · <kbd>Esc</kbd> damp.</p>
+    <p><b>Keys:</b> <kbd>Q</kbd>–<kbd>]</kbd> chords in string order · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> major, minor, 7th · <kbd>Space</kbd> bass + chord · hold a chord key to keep its pattern going · <kbd>Z</kbd> bass · <kbd>X</kbd> chord · <kbd>C</kbd> alternate bass · <kbd>V</kbd> arpeggio · <kbd>↑</kbd> <kbd>↓</kbd> glissando · <kbd>A</kbd>–<kbd>'</kbd> melody (with <kbd>Shift</kbd>: tremolo) · <kbd>F2</kbd> zoom · <kbd>F1</kbd> manual · <kbd>Enter</kbd> play/pause · <kbd>Esc</kbd> damp.</p>
   </div>
   <p id="audioInfo" class="fine"></p>
+</section>
+
+<section id="manual" class="sheet panel" role="dialog" aria-label="User's manual" hidden>
+  <div class="drawer-head sticky"><h2>User's Manual</h2><button class="icon close" data-close="manual" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="manual-body">
+    <nav class="toc" aria-label="Contents">
+      <a href="#m-start">Getting started</a><a href="#m-instrument">The instrument</a><a href="#m-touch">Playing by touch</a><a href="#m-mouse">Playing with a mouse</a><a href="#m-chords">Chords</a><a href="#m-keys">Keyboard</a><a href="#m-songs">Song library</a><a href="#m-views">Views</a><a href="#m-settings">Settings</a><a href="#m-install">iPad and Windows</a><a href="#m-trouble">If something is wrong</a>
+    </nav>
+
+    <h3 id="m-start">Getting started</h3>
+    <p>Press <b>Tap to begin</b>. Sound can only start after a touch, click or key press, so the instrument stays silent until then. After that, touch or click any string to pluck it, or press the gold play button to hear a piece from the song library.</p>
+    <p>Everything you change — settings, chord type, view, tempo and the last piece you chose — is remembered the next time you open the instrument on the same device.</p>
+
+    <h3 id="m-instrument">The instrument</h3>
+    <p>This is a concert zither in Munich tuning with 42 strings. Each string is modelled separately, and strings ring in sympathy with one another as they do on a real zither.</p>
+    <table>
+      <tr><th>Strings</th><th>Where</th><th>Tuning</th></tr>
+      <tr><td>5 melody</td><td>Over the black fretboard, nearest you</td><td>a′ a′ d′ g c, with 29 frets</td></tr>
+      <tr><td>12 accompaniment</td><td>Just behind the fretboard</td><td>E♭ B♭ F C G D A E B F♯ C♯ G♯</td></tr>
+      <tr><td>12 bass</td><td>Behind the accompaniment</td><td>The same notes an octave lower</td></tr>
+      <tr><td>13 contrabass</td><td>Furthest from you</td><td>F down to the F an octave below, in semitones</td></tr>
+    </table>
+    <p>The accompaniment and bass strings are arranged in fifths, not in scale order. The <b>red strings</b> are F, A and C♯ and serve as landmarks. Note names are printed under the open strings near the right-hand bridge (you can hide them in Settings).</p>
+
+    <h3 id="m-touch">Playing by touch</h3>
+    <p>The instrument is made for several fingers at once.</p>
+    <ul>
+      <li><b>Fret and pluck:</b> hold a finger on the fretboard to stop a melody string, and pluck the same string with another finger in the gap between the last fret and the bridge. With nothing held, the string sounds open.</li>
+      <li><b>Slide:</b> keep the fretting finger down and drag it along the string. The pitch follows fret by fret without a new pluck.</li>
+      <li><b>Bend:</b> drag the fretting finger across the string, away from its line. The note rises by up to two semitones.</li>
+      <li><b>Vibrato:</b> rock the fretting fingertip gently back and forth along the string without leaving the fret. The pitch wavers with your finger.</li>
+      <li><b>Tremolo:</b> pluck a string and keep your finger resting on it. After a moment the string is plucked rapidly over and over until you lift the finger. This works on the melody strings (in the plucking gap) and on the open strings.</li>
+      <li><b>Hammer-on and pull-off:</b> while a string is ringing, put down a second finger on a higher fret, or lift it again.</li>
+      <li><b>Stop a note:</b> lift the fretting finger.</li>
+      <li><b>Open strings:</b> tap a string to pluck it. Sweep a finger across the strings for a glissando; a faster sweep plays louder.</li>
+      <li><b>Strum the melody strings:</b> sweep across them in the plucking gap.</li>
+    </ul>
+    <p>If <i>Touching a fret sounds the note</i> is on in Settings (the default), a touch on the fretboard plays the note straight away, which is easiest when starting out. Turn it off to play the traditional way, where the fretting hand is silent and only the plucking hand sounds the string.</p>
+
+    <h3 id="m-mouse">Playing with a mouse</h3>
+    <ul>
+      <li>Click a fret to play that note; it rings on after you release.</li>
+      <li>Click an open string to pluck it. Hold the button and drag across strings to strum.</li>
+      <li>Hold a fret and drag along the string to slide, or across it to bend.</li>
+      <li>Hold the button down on an open string, or on a melody string in the plucking gap, for a tremolo.</li>
+      <li>Drag the background (or use the right button anywhere) to turn the view. Use the wheel to zoom.</li>
+    </ul>
+
+    <h3 id="m-chords">Chords</h3>
+    <p>The bar along the bottom plays chords on the open strings.</p>
+    <ul>
+      <li><b>Major · Minor · 7th</b> sets the chord type.</li>
+      <li>The <b>twelve chord buttons</b> are in the same order as the accompaniment strings. Pressing one lights the strings of that chord: the accompaniment strings and the bass string of its root.</li>
+      <li><b>Chord · Oom-pah · Waltz · Arp</b> chooses how the chord is plucked: all together; bass then chord; bass, chord, chord; or bass followed by the chord strings one by one.</li>
+      <li><b>Auto-pluck</b> on: choosing a chord plays it. Off: the strings are only lit, so you can pluck them yourself.</li>
+      <li><b>Keep it going:</b> hold a chord button down and the pattern repeats in tempo, alternating the bass between the root and the fifth, until you let go; it finishes the bar it is in. Press another chord to change.</li>
+      <li><b>Latch</b> on: the pattern keeps playing after you let go, leaving both hands free for the melody. Press the same chord again, or Damp, to stop it.</li>
+      <li><b>Damp</b> silences all strings, stops a running pattern and clears the lit chord.</li>
+    </ul>
+    <p>The speed of the patterns is set by <i>Chord pattern tempo</i> in Settings.</p>
+    <p>Because the strings are in fifths, a major chord always has the same shape: the root string, the string next to it, and the string four further on.</p>
+
+    <h3 id="m-keys">Keyboard</h3>
+    <table>
+      <tr><th>Keys</th><th>Action</th></tr>
+      <tr><td><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> <kbd>T</kbd> <kbd>Y</kbd> <kbd>U</kbd> <kbd>I</kbd> <kbd>O</kbd> <kbd>P</kbd> <kbd>[</kbd> <kbd>]</kbd></td><td>The twelve chords, in string order (E♭ to G♯)</td></tr>
+      <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Major, minor, 7th</td></tr>
+      <tr><td><kbd>Space</kbd></td><td>Play the current chord in the chosen pattern; hold it (or a chord key) to keep the pattern going</td></tr>
+      <tr><td><kbd>Z</kbd> <kbd>X</kbd> <kbd>C</kbd> <kbd>V</kbd></td><td>Bass note · chord · alternate bass (the fifth) · arpeggio</td></tr>
+      <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Glissando up or down the accompaniment strings</td></tr>
+      <tr><td><kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> <kbd>'</kbd></td><td>Melody notes, a C major scale; hold for a longer note. With <kbd>Shift</kbd> held: tremolo</td></tr>
+      <tr><td><kbd>F2</kbd></td><td>Zoom: whole instrument, fretboard, chord strings, all open strings</td></tr>
+      <tr><td><kbd>Enter</kbd></td><td>Play or pause the song</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Close open panels and damp all strings</td></tr>
+      <tr><td><kbd>M</kbd></td><td>Mirror the instrument</td></tr>
+      <tr><td><kbd>F1</kbd></td><td>Open this manual</td></tr>
+    </table>
+
+    <h3 id="m-songs">Song library</h3>
+    <p>Press the song button at the top left to open the library, and choose a piece to play it. While it plays, markers show the fretted notes, the plucked strings flash, and the current chord is lit on the strings and in the chord bar. You can play along at any time.</p>
+    <ul>
+      <li><b>Transport:</b> previous piece, play/pause, stop, next piece, and repeat.</li>
+      <li><b>Position:</b> click or tap the progress line to jump to another place.</li>
+      <li><b>Tempo:</b> the slider beside the metronome icon slows a piece to 60% or speeds it up to 130%.</li>
+    </ul>
+    <p>All pieces are public-domain compositions in arrangements made for this instrument. Each carries a label saying how its notes were obtained: <b>From score</b> (transcribed from a public-domain edition), <b>Read from scan</b> (read by eye from a scanned score, so small misreadings are possible) or <b>From memory</b> (approximate, not checked against a score). The selected piece also shows its source.</p>
+
+    <h3 id="m-views">Views</h3>
+    <ul>
+      <li><b>Play</b> — the normal playing angle, as if seated at the instrument.</li>
+      <li><b>Top</b> — straight from above, which gives the widest spacing between strings.</li>
+      <li><b>Show</b> — a slowly moving display view, best for watching a piece play.</li>
+    </ul>
+    <p>The <b>Zoom</b> button steps through four framings: the whole instrument; the fretboard alone; the accompaniment and bass strings (the ones chords are played on), which gives the widest spacing; and all the open strings. The zoomed framings are shown from above and make the strings much easier to hit on a small screen. Strings that are out of view still sound, so the chord buttons and song playback keep working. Choosing Play, Top or Show returns to the whole instrument.</p>
+
+    <h3 id="m-settings">Settings</h3>
+    <p>Open Settings with the slider icon at the top right.</p>
+    <ul>
+      <li><b>Volume</b> — overall loudness.</li>
+      <li><b>Room</b> — how much room reverberation surrounds the instrument.</li>
+      <li><b>Sympathetic resonance</b> — how strongly strings set one another ringing.</li>
+      <li><b>Chord pattern tempo</b> — the speed of the chord patterns, in beats per minute.</li>
+      <li><b>Vibrato on long notes</b> — adds a gentle vibrato to longer melody notes in song playback and on the melody keys.</li>
+      <li><b>Mirror instrument</b> — flips the zither left to right for left-handed playing.</li>
+      <li><b>Note names under the strings</b> — shows or hides the printed note names.</li>
+      <li><b>Touching a fret sounds the note</b> — see <i>Playing by touch</i>.</li>
+    </ul>
+
+    <h3 id="m-install">iPad and Windows</h3>
+    <p><b>iPad:</b> open the instrument's web address in Safari, tap Share, then <i>Add to Home Screen</i>. Opened from the home screen it runs full screen, and after the first visit it also works without an internet connection. Hold the iPad in landscape.</p>
+    <p><b>Windows:</b> run <i>ConcertZither.exe</i>. Nothing needs installing. On a touch-screen PC, touch works as on the iPad.</p>
+
+    <h3 id="m-trouble">If something is wrong</h3>
+    <ul>
+      <li><b>No sound:</b> touch the instrument once more (the device may have paused audio while the app was in the background), then check Volume in Settings and the device's own volume.</li>
+      <li><b>Strings ring on too long or sound muddy:</b> press Damp, or lower Sympathetic resonance.</li>
+      <li><b>Open strings are hard to hit:</b> use Zoom (the Chords framing is the roomiest), or use the chord buttons with Auto-pluck off to light the strings you want.</li>
+      <li><b>Some buttons are missing:</b> on narrow screens the tempo slider, repeat and previous-piece buttons are hidden to make room. Turn the device to landscape or widen the window.</li>
+    </ul>
+  </div>
 </section>
 
 <footer id="chordbar" class="panel">
@@ -96,6 +224,7 @@
     <button data-p="together" title="Bass and chord together">Chord</button><button data-p="oompah" class="active" title="Bass, then chord">Oom-pah</button><button data-p="waltz" title="Bass, chord, chord">Waltz</button><button data-p="arp" title="Bass, then the chord strings one by one">Arp</button>
   </div>
   <button id="autoBtn" class="chip toggle" aria-pressed="true" title="Pluck the chord automatically when you choose it. Off: the strings are only highlighted.">Auto-pluck</button>
+  <button id="latchBtn" class="chip toggle" aria-pressed="false" title="Keep a chord pattern playing after you let go of its button">Latch</button>
   <button id="dampBtn" class="chip" title="Damp all strings (Esc)">Damp</button>
 </footer>
 

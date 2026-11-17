@@ -1,5 +1,5 @@
 // Offline cache for the home-screen web app. Bump VERSION whenever files change.
-const VERSION = 'concert-zither-v3';
+const VERSION = 'concert-zither-v5';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/main.js', 'js/zither-model.js', 'js/scene.js', 'js/audio.js', 'js/input.js', 'js/player.js', 'js/songs.js',

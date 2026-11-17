@@ -56,6 +56,8 @@
       this.glide = new Uint8Array(n); this.tau = new Float64Array(n).fill(0.006);
       this.fret = new Int16Array(n); this.bend = new Float64Array(n); this.damped = new Uint8Array(n);
       this.dampUntil = new Float64Array(n);
+      this.vibDepth = new Float64Array(n); this.vibRate = new Float64Array(n);
+      this.vibStart = new Float64Array(n); this.vibPhase = new Float64Array(n);
 
       this.master = cfg.master == null ? 1 : cfg.master;
       this.bright = 1;
@@ -179,7 +181,7 @@
     /** Pluck string s. fret (optional) sets the stopped fret first. */
     pluck(s, vel, fret, kind) {
       if (s < 0 || s >= this.n) return;
-      this.damped[s] = 0;
+      this.damped[s] = 0; this.vibDepth[s] = 0;
       if (fret != null) this.fret[s] = Math.max(0, Math.min(40, fret | 0));
       this._retune(s, true);
       // the finger or pick touches the string first and kills most of what was ringing
@@ -207,6 +209,17 @@
       this.bend[s] = Math.max(-1, Math.min(4, semis));
       this.tau[s] = 0.008;
       this._retune(s, false);
+    }
+
+    /** Vibrato: a slow pitch wobble of +-depth semitones that fades in after
+     *  a delay. depth 0 stops it and lets the note settle back in tune. */
+    setVibrato(s, depth, rate, delay, at) {
+      if (s < 0 || s >= this.n) return;
+      this.vibDepth[s] = Math.max(0, Math.min(1, depth || 0));
+      this.vibRate[s] = Math.max(1, Math.min(12, rate || 5.5));
+      this.vibStart[s] = (at == null ? this.now : at) + (delay || 0);
+      this.vibPhase[s] = 0;
+      if (!this.vibDepth[s]) { this.tau[s] = 0.01; this._retune(s, false); }
     }
 
     /** Mute a string with the hand. The hand lifts again after a moment, so
@@ -268,6 +281,7 @@
         case 'pluck': this.pluck(m.s, m.vel, m.fret, m.kind); break;
         case 'fret': this.setFret(m.s, m.fret, m.hammer || 0); break;
         case 'bend': this.setBend(m.s, m.semis); break;
+        case 'vib': this.setVibrato(m.s, m.depth, m.rate, m.delay, m.time); break;
         case 'damp': this.damp(m.s); break;
         case 'dampAll': for (let i = 0; i < this.n; i++) this.damp(i); break;
         case 'flush': this.queue.length = 0; break;
@@ -334,6 +348,15 @@
           this.damped[i] = 0;
           const Lr = this._coefs(i, this.curF[i]);
           if (!this.glide[i]) { dl[i] = this.dEnd[i] = Lr; this._taps(i, Lr); }
+        }
+        if (this.vibDepth[i] > 0 && now >= this.vibStart[i]) {
+          const env = Math.min(1, (now - this.vibStart[i]) / 0.3);
+          this.vibPhase[i] += TWO_PI * this.vibRate[i] * n / this.sr;
+          const fv = this._target(i) * Math.pow(2, this.vibDepth[i] * env * Math.sin(this.vibPhase[i]) / 12);
+          this.curF[i] = fv; this.glide[i] = 0;
+          this.dEnd[i] = this._coefs(i, fv);
+          dInc[i] = (this.dEnd[i] - dl[i]) / n;
+          continue;
         }
         if (!this.glide[i]) continue;
         const t = this.tgtF[i];

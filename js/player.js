@@ -247,7 +247,7 @@ export class SongPlayer {
     this.audio = audio; this.scene = scene;
     this.song = null; this.compiled = null;
     this.playing = false; this.pos = 0;         // seconds of song time at the song's own tempo
-    this.scale = 1; this.loop = false;
+    this.scale = 1; this.loop = false; this.vibrato = true;
     this.next = 0; this.timer = null; this.visuals = new Set();
     this.onProgress = null; this.onEnd = null; this.onChord = null; this.onState = null;
   }
@@ -340,6 +340,7 @@ export class SongPlayer {
       if (e.type === 'mel') {
         const end = sec(e.t + e.dur);
         a.pluck(e.string, e.vel, e.fret, time);
+        if (this.vibrato && end - time > 0.6) a.vibrato(e.string, 0.16, 5.5, 0.25, time);
         if (e.damp) a.damp(e.string, Math.max(time + 0.05, end + 0.03));
         this._later(time, () => { sc.setFinger(e.string, e.fret, 'song'); sc.flash(e.string, 0.9); });
         this._later(end - 0.02, () => { if (sc.markers[e.string].song.fret === e.fret) sc.setFinger(e.string, 0, 'song'); });
