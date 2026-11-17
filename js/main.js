@@ -13,7 +13,7 @@ const $ = (id) => document.getElementById(id);
 const host = window.chrome && window.chrome.webview ? window.chrome.webview : null;   // Windows shell
 const params = new URLSearchParams(location.search);
 const KEY = 'concertzither.settings.v1';
-export const APP_VERSION = '1.6.0';
+export const APP_VERSION = '1.7.0';
 
 // ---- settings (remembered between sessions) -------------------------------------
 const settings = Object.assign({
@@ -23,7 +23,7 @@ const settings = Object.assign({
   practice: false, mode: 'listen', wait: false, repeat: 'off',
   tremolo: true, tremoloDelay: 320, vibDepth: 1,
   tuning: 'munich', pitch: 440, voice: 'concert', finish: 'sunburst', hands: true, midi: false,
-  countIn: false,
+  countIn: false, speedUp: false, favs: [], favOnly: false,
 }, (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
 setTuning(settings.tuning, settings.pitch);             // before anything places notes or starts the engine
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch (e) { /* private mode */ } };
@@ -48,6 +48,19 @@ const recorder = new Recorder(audio, scene);
 // songs added by the player are kept on this device
 const USER_KEY = 'concertzither.songs.v1';
 try { for (const s of JSON.parse(localStorage.getItem(USER_KEY)) || []) if (s && (s.abc || (s.take && Array.isArray(s.events)))) SONGS.push(s); } catch (e) { /* none */ }
+// how each piece has gone in Wait for me, kept on this device
+const PRACTICE_KEY = 'concertzither.practice.v1';
+let practice = {};
+try { practice = JSON.parse(localStorage.getItem(PRACTICE_KEY)) || {}; } catch (e) { practice = {}; }
+function recordPractice(song, st, n) {
+  const acc = st.hit / Math.max(1, st.hit + st.wrong), wait = st.waitSum / Math.max(1, st.hit);
+  const r = practice[song.id] || { times: 0, bestAcc: 0, bestWait: null };
+  r.times++; r.last = Date.now();
+  if (st.hit >= n * 0.9) { r.bestAcc = Math.max(r.bestAcc, acc); r.bestWait = r.bestWait == null ? wait : Math.min(r.bestWait, wait); }
+  practice[song.id] = r;
+  try { localStorage.setItem(PRACTICE_KEY, JSON.stringify(practice)); } catch (e) { /* full or private */ }
+  return { acc, wait, r };
+}
 const saveUserSongs = () => { try { localStorage.setItem(USER_KEY, JSON.stringify(SONGS.filter((s) => s.user))); } catch (e) { /* full or private */ } };
 player.mode = settings.mode; player.wait = settings.wait; player.vibDepth = settings.vibDepth;
 // in a zoomed framing, follow the part of the instrument the next note is on
@@ -295,13 +308,31 @@ let songIndex = -1;
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function renderList() {
   listEl.textContent = '';
+  const q = ($('songSearch').value || '').trim().toLowerCase();
+  const favs = new Set(settings.favs);
+  let shown = 0;
   let cat = null;
   SONGS.forEach((song, i) => {
+    if (settings.favOnly && !favs.has(song.id)) return;
+    if (q && !`${song.title} ${song.composer} ${song.category} ${song.key || ''}`.toLowerCase().includes(q)) return;
+    shown++;
     if (song.category !== cat) { cat = song.category; const h = document.createElement('h3'); h.textContent = cat; listEl.appendChild(h); }
     const b = document.createElement('button');
     b.className = 'song' + (i === songIndex ? ' current' : ''); b.dataset.i = i;
     const acc = ACCURACY[song.accuracy] || ACCURACY.user;
-    b.innerHTML = `<b></b><span class="badge ${song.accuracy}" title="${acc.note}">${acc.label}</span><i></i><span class="src"></span>`;
+    b.innerHTML = `<b></b><span class="badge ${song.accuracy}" title="${acc.note}">${acc.label}</span><i></i><span class="rec"></span><span class="src"></span>`;
+    const fav = document.createElement('span');
+    fav.className = 'fav' + (favs.has(song.id) ? ' on' : ''); fav.setAttribute('role', 'button');
+    fav.title = favs.has(song.id) ? 'Remove from favourites' : 'Add to favourites';
+    fav.textContent = favs.has(song.id) ? '★' : '☆';
+    fav.addEventListener('click', (e) => {
+      e.stopPropagation();
+      settings.favs = favs.has(song.id) ? settings.favs.filter((x) => x !== song.id) : [...settings.favs, song.id];
+      save(); renderList();
+    });
+    b.prepend(fav);
+    const pr = practice[song.id];
+    if (pr) b.querySelector('.rec').textContent = `Practised ${pr.times}×${pr.bestAcc ? ` · best ${Math.round(pr.bestAcc * 100)}% right` : ''}${pr.bestWait != null ? `, ${pr.bestWait.toFixed(1)} s wait` : ''}`;
     b.querySelector('b').textContent = song.title;
     b.querySelector('i').textContent = song.take ? `Recorded on this zither · ${fmt(song.duration)}` : `${song.composer}${song.year ? ' · ' + song.year : ''} · ${song.key} · ${song.meter}`;
     b.querySelector('.src').textContent = song.source;
@@ -320,7 +351,16 @@ function renderList() {
     b.addEventListener('click', () => { loadSong(i); if (song.take) togglePlay(); else player.play().then(syncTransport); });
     listEl.appendChild(b);
   });
+  if (!shown) {
+    const p = document.createElement('p'); p.className = 'drawer-note';
+    p.textContent = settings.favOnly && !settings.favs.length ? 'No favourites yet. Tap the star beside a piece to add it.' : 'No pieces match.';
+    listEl.appendChild(p);
+  }
 }
+$('songSearch').addEventListener('input', renderList);
+function syncFavBtn() { $('favOnlyBtn').setAttribute('aria-pressed', String(settings.favOnly)); }
+$('favOnlyBtn').addEventListener('click', () => { settings.favOnly = !settings.favOnly; save(); syncFavBtn(); renderList(); });
+syncFavBtn();
 renderList();
 
 function loadSong(i) {
@@ -376,7 +416,11 @@ function nextSongIndex(from, step = 1) {
 player.onEnd = () => {
   syncTransport();
   const st = player.stats, n = player.gateCount();
-  if (player.wait && n && st.hit) toast(`Finished: ${st.hit} of ${n} notes, ${st.wrong} wrong, ${(st.waitSum / st.hit).toFixed(1)} s waited per note on average.`, 6000);
+  if (player.wait && n && st.hit && player.song) {
+    const { acc, r } = recordPractice(player.song, st, n);
+    toast(`Finished: ${st.hit} of ${n} notes, ${Math.round(acc * 100)}% right, ${(st.waitSum / st.hit).toFixed(1)} s waited per note. Practised ${r.times}× in all.`, 6000);
+    renderList();
+  }
   if (settings.repeat !== 'all') return;
   nextTimer = setTimeout(() => { loadSong(nextSongIndex(songIndex)); player.play().then(syncTransport); }, 700);
 };
@@ -587,6 +631,7 @@ slider('vibDepth', 'vibDepth', (v) => { player.vibDepth = v; });
   el.addEventListener('input', () => { settings.tremoloDelay = +el.value; out.textContent = (el.value / 1000).toFixed(2); save(); });
 }
 $('appVersion').textContent = 'Concert Zither ' + APP_VERSION;
+for (const el of document.querySelectorAll('.app-version')) el.textContent = 'Version ' + APP_VERSION;
 
 // ---- sound, tuning and looks
 function select(id, key, options, apply) {
@@ -628,6 +673,14 @@ checkbox('vibrato', 'vibrato', (v) => { player.vibrato = v; });
 checkbox('tremolo', 'tremolo');
 checkbox('hands', 'hands', (v) => scene.setHands(v));
 checkbox('countIn', 'countIn');
+checkbox('speedUp', 'speedUp');
+player.onLoop = () => {
+  if (!settings.speedUp || settings.tempo >= 100) return;
+  settings.tempo = Math.min(100, settings.tempo + 5); save();
+  player.scale = settings.tempo / 100;                // takes effect as the loop restarts
+  $('tempo').value = settings.tempo; $('tempoOut').textContent = settings.tempo + '%';
+  toast(settings.tempo >= 100 ? 'Full speed reached.' : `Speeding up: ${settings.tempo}%`, 1500);
+};
 
 // ---- moving your own songs and recordings to another device
 async function offerFile(blob, name) {

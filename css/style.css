@@ -321,3 +321,20 @@ kbd { font: 11px var(--sans); padding: 1px 5px; border-radius: 4px; border: 1px 
 .versions { margin: 0 0 12px; }
 .versions dt { font: 600 15px var(--serif); color: var(--gold); margin-top: 10px; }
 .versions dd { margin: 2px 0 0; }
+
+/* ---- version 1.7: version labels, library search and favourites, practice record ------------------ */
+.start-version { font-size: 12px; color: var(--ink-soft); letter-spacing: 0.08em; margin: -16px 0 22px; }
+.sheet .sticky h2 small { font: 12px var(--sans); color: var(--ink-soft); margin-left: 8px; letter-spacing: 0.04em; }
+.drawer-note .app-version { white-space: nowrap; opacity: 0.8; }
+.search-row { display: flex; gap: 8px; margin: 0 0 6px; }
+#songSearch { flex: 1; min-width: 0; height: 36px; border-radius: 9px; border: 1px solid var(--line-strong); background: rgba(0, 0, 0, 0.3); color: var(--ink); padding: 0 10px; font: 13px var(--sans); -webkit-user-select: text; user-select: text; touch-action: auto; }
+#songSearch:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+.search-row .chip { height: 36px; flex: none; }
+.song { grid-template-columns: auto 1fr auto; }
+.song .fav { grid-row: 1 / span 2; grid-column: 1; align-self: center; font-size: 18px; color: var(--ink-soft); width: 26px; text-align: center; cursor: pointer; }
+.song .fav.on { color: var(--gold-bright); }
+.song b, .song i, .song .rec { grid-column: 2; }
+.song .badge { grid-column: 3; }
+.song .rec { font-size: 11px; color: var(--gold); }
+.song .rec:empty { display: none; }
+.song .src { grid-column: 2 / -1; }

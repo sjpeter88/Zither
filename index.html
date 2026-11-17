@@ -25,7 +25,7 @@
 <header id="topbar" class="panel">
   <div class="brand">
     <span class="brand-mark" aria-hidden="true"></span>
-    <span class="brand-text"><b>Concert Zither</b><i>Munich tuning · 42 strings</i></span>
+    <span class="brand-text" title="Concert Zither"><b>Concert Zither</b><i class="app-version"></i></span>
   </div>
 
   <button id="songBtn" class="song-btn" aria-haspopup="dialog" aria-controls="library">
@@ -86,7 +86,8 @@
 
 <aside id="library" class="drawer panel" role="dialog" aria-label="Song library" hidden>
   <div class="drawer-head"><h2>Song library</h2><button class="icon close" data-close="library" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-  <p class="drawer-note">Public-domain pieces in arrangements for this zither. The fretboard and strings follow the playing.</p>
+  <p class="drawer-note">Public-domain pieces in arrangements for this zither. The fretboard and strings follow the playing. <span class="app-version"></span></p>
+  <div class="search-row"><input id="songSearch" type="search" placeholder="Search title, composer or kind…" autocomplete="off" spellcheck="false" aria-label="Search the library"><button id="favOnlyBtn" class="chip toggle" aria-pressed="false" title="Show favourites only">★ Favourites</button></div>
   <div class="drawer-actions"><button id="playAllBtn" class="chip">Play all, on repeat</button><button id="importBtn" class="chip">Add a song…</button><button id="exportBtn" class="chip" title="Save your songs and kept recordings to a file">Export mine</button><button id="importFileBtn" class="chip" title="Load songs and recordings exported on another device, or an .abc file">Import file…</button></div>
   <input id="importFile" type="file" accept=".json,.abc,.txt,application/json,text/plain" hidden>
   <div id="songList" class="song-list"></div>
@@ -103,6 +104,7 @@
   <label class="row"><span>Finish</span><select id="finishSel"></select></label>
   <label class="row switch"><span>Show hands during playback</span><input id="hands" type="checkbox"><i></i></label>
   <label class="row switch"><span>Count in one bar before a piece starts</span><input id="countIn" type="checkbox"><i></i></label>
+  <label class="row switch"><span>Speed trainer: each time an A–B loop repeats, play it 5% faster, up to full speed</span><input id="speedUp" type="checkbox"><i></i></label>
   <div class="row midi-row"><span>MIDI keyboard<small id="midiStatus"></small></span><button id="midiBtn" class="chip">Connect</button></div>
   <label class="row"><span>Chord pattern tempo <output id="chordBpmOut"></output> bpm</span><input id="chordBpm" type="range" min="60" max="180"></label>
   <label class="row switch"><span>Vibrato on long notes (songs and keyboard)</span><input id="vibrato" type="checkbox"><i></i></label>
@@ -123,7 +125,7 @@
 </section>
 
 <section id="manual" class="sheet panel" role="dialog" aria-label="User's manual" hidden>
-  <div class="drawer-head sticky"><h2>User's Manual</h2><button class="icon close" data-close="manual" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="drawer-head sticky"><h2>User's Manual <small class="app-version"></small></h2><button class="icon close" data-close="manual" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="manual-body">
     <nav class="toc" aria-label="Contents">
       <a href="#m-start">Getting started</a><a href="#m-instrument">The instrument</a><a href="#m-touch">Playing by touch</a><a href="#m-mouse">Playing with a mouse</a><a href="#m-chords">Chords</a><a href="#m-keys">Keyboard</a><a href="#m-songs">Song library</a><a href="#m-practice">Practising</a><a href="#m-views">Views</a><a href="#m-settings">Settings</a><a href="#m-sound">Sound, tuning and looks</a><a href="#m-midi">MIDI keyboard</a><a href="#m-install">iPad and Windows</a><a href="#m-trouble">If something is wrong</a><a href="#m-versions">What's new</a>
@@ -206,10 +208,13 @@
       <li><b>Position:</b> click or tap the progress line to jump to another place.</li>
       <li><b>Tempo:</b> the slider beside the metronome icon slows a piece to 60% or speeds it up to 130%.</li>
       <li><b>Loop a passage (A–B):</b> press <b>A–B</b> during or before the passage; the loop starts at the beginning of that bar. Press it again at the end of the passage; the loop ends at the end of that bar, and the passage is shaded on the progress line. The piece then repeats that passage until you press A–B a third time. It works with every practice mode, including Wait for me.</li>
+      <li><b>Speed trainer:</b> turn on <i>Speed trainer</i> in Settings, set the tempo slider low (say 70%) and loop a passage with A–B. Each time the loop repeats it is played 5% faster, until it reaches full speed.</li>
       <li><b>Count-in:</b> with <i>Count in one bar before a piece starts</i> on in Settings, the play button gives one bar of clicks first, accented on the first beat, at the piece's tempo.</li>
     </ul>
     <p>All pieces are public-domain compositions in arrangements made for this instrument. Each carries a label saying how its notes were obtained: <b>From score</b> (transcribed from a public-domain edition), <b>Read from scan</b> (read by eye from a scanned score, so small misreadings are possible) or <b>From memory</b> (approximate, not checked against a score). The selected piece also shows its source.</p>
 
+    <p><b>Finding a piece.</b> Type in the search box at the top of the library to find pieces by title, composer, kind (for example "polka" or "German") or key. Tap the star beside a piece to make it a favourite, and <b>★ Favourites</b> to show only your favourites.</p>
+    <p><b>Practice record.</b> Each time you finish a piece with <i>Wait for me</i> on, the library notes it under the piece: how many times you have practised it, and your best result — the share of notes you got right first time and the shortest average wait — from run-throughs where you played at least nine notes in ten. The record is kept on this device.</p>
     <p><b>Adding your own songs.</b> <i>Add a song…</i> at the top of the library opens a box where you can paste a tune in ABC notation, a plain-text format widely used for folk music. The melody is arranged for the fretboard, and if the tune includes chord symbols the bass and accompaniment are added. Your songs appear under <i>My Songs</i>, are kept on this device only, and can be removed from the list when selected.</p>
     <p><b>Recording.</b> Press the round record button, play, and press it again to finish. A small bar appears with <b>Play take</b>, which replays your playing on the instrument, and <b>Save audio</b>, which saves it as a WAV sound file. If a song is playing while you record, it is recorded too. The latest take is kept on this device, even after you close the app, until you record another or discard it with ×. To keep a take for good, press <b>Keep</b> and give it a name: it then appears in the library under <i>My Recordings</i>, where you can play it, save it as audio, or remove it. (Play all skips recordings.)</p>
 
@@ -276,7 +281,7 @@
     <p><b>iPad:</b> open the instrument's web address in Safari, tap Share, then <i>Add to Home Screen</i>. Opened from the home screen it runs full screen, and after the first visit it also works without an internet connection. Hold the iPad in landscape.</p>
     <p><b>Windows:</b> run <i>ConcertZither.exe</i>. Nothing needs installing. On a touch-screen PC, touch works as on the iPad.</p>
 
-    <p>The version number is shown at the bottom of Settings. After an update, compare it on each device to check it has the new version.</p>
+    <p>The version number is shown on the start screen, at the top of the song library and of this manual, and at the bottom of Settings. After an update, compare it on each device to check it has the new version.</p>
 
     <h3 id="m-trouble">If something is wrong</h3>
     <ul>
@@ -288,8 +293,10 @@
       <li><b>The top bar takes two rows:</b> on narrower screens it wraps rather than hiding buttons. Turn the device to landscape or widen the window for a single row.</li>
     </ul>
     <h3 id="m-versions">What's new in each version</h3>
-    <p>Your version number is at the bottom of Settings.</p>
+    <p>Your version number is on the start screen, at the top of the song library and of this manual, and at the bottom of Settings.</p>
     <dl class="versions">
+      <dt>1.7</dt>
+      <dd>The version number on the start screen, in the song library and in the manual. Speed trainer for A–B loops. Search and favourites in the song library. A practice record for each piece. Fixed: playing a piece again in Wait for me no longer skips the notes you had already reached.</dd>
       <dt>1.6</dt>
       <dd>Three new pieces from public-domain scores: Strauss's <i>Thunder and Lightning</i> polka (first part), a ländler by Fernando Sor, and Horetzky's Tyrolian Air. Loop a passage with the A–B button. Optional one-bar count-in. Export your own songs and recordings to a file and import them on another device; import .abc files. Starts several times faster. This version history.</dd>
       <dt>1.5</dt>
@@ -349,6 +356,7 @@
     <span class="brand-mark big" aria-hidden="true"></span>
     <h1>Concert Zither</h1>
     <p class="sub">Munich tuning · five melody strings · thirty-seven open strings</p>
+    <p class="start-version app-version"></p>
     <button id="startBtn" class="start-btn">Tap to begin</button>
     <p class="fine" id="startNote">Sound starts with your first touch.</p>
   </div>

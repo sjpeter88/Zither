@@ -281,6 +281,7 @@ export class SongPlayer {
     this.spb = 60 / song.tempo;                 // seconds per beat
     this.duration = this.compiled.beats * this.spb + 2.5;
     this.pos = 0; this.next = 0; this.loopA = this.loopB = null;
+    this.gate = null; this.gateDone = -1; this.waiting = false;
     if (this.onProgress) this.onProgress(0, this.duration);
   }
 
@@ -298,6 +299,7 @@ export class SongPlayer {
     if (!this.song || this.playing) return;
     await this.audio.start();
     if (this.pos >= this.duration - 0.05) this.seek(0);
+    if (this.pos === 0) { this.resetStats(); this.gate = null; this.gateDone = -1; this.waiting = false; }
     this.playing = true;
     this.anchor = this.audio.now + 0.12 - this.pos / this.scale;
     if (countIn) {                           // one bar of clicks before the music
@@ -325,7 +327,7 @@ export class SongPlayer {
     this.playing = false; clearInterval(this.timer);
     this._clear();
     if (this.audio.ready) this.audio.dampAll();
-    this.pos = 0; this.next = 0;
+    this.pos = 0; this.next = 0; this.gate = null; this.gateDone = -1; this.waiting = false;
     this.scene.setHints([]);
     if (this.onChord) this.onChord(null);
     if (this.onProgress && this.song) this.onProgress(0, this.duration);
@@ -468,7 +470,7 @@ export class SongPlayer {
     }
     const p = Math.max(0, (now - this.anchor) * this.scale);
     if (this.onProgress) this.onProgress(Math.min(p, this.duration), this.duration);
-    if (this.loopB != null && p >= this.loopB) { this.seek(this.loopA); return; }
+    if (this.loopB != null && p >= this.loopB) { if (this.onLoop) this.onLoop(); this.seek(this.loopA); return; }
     if (p >= this.duration) {
       this.playing = false; clearInterval(this.timer);
       this.pos = this.duration;
