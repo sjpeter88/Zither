@@ -13,7 +13,7 @@ const $ = (id) => document.getElementById(id);
 const host = window.chrome && window.chrome.webview ? window.chrome.webview : null;   // Windows shell
 const params = new URLSearchParams(location.search);
 const KEY = 'concertzither.settings.v1';
-export const APP_VERSION = '1.5.0';
+export const APP_VERSION = '1.6.0';
 
 // ---- settings (remembered between sessions) -------------------------------------
 const settings = Object.assign({
@@ -23,6 +23,7 @@ const settings = Object.assign({
   practice: false, mode: 'listen', wait: false, repeat: 'off',
   tremolo: true, tremoloDelay: 320, vibDepth: 1,
   tuning: 'munich', pitch: 440, voice: 'concert', finish: 'sunburst', hands: true, midi: false,
+  countIn: false,
 }, (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
 setTuning(settings.tuning, settings.pitch);             // before anything places notes or starts the engine
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch (e) { /* private mode */ } };
@@ -75,7 +76,7 @@ layout();
 
 let last = performance.now();
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;      // never step backwards
   scene.update(dt);
   if (!$('practice').hidden) tab.draw();
   requestAnimationFrame(frame);
@@ -355,12 +356,13 @@ async function togglePlay() {
   if (songIndex < 0) loadSong(0);
   const cur = SONGS[songIndex];
   if (cur && cur.take) { if (recorder.playing) recorder.stopPlayback(); else { if (!(await startAudio())) return; recorder.play(); } return; }
-  if (player.playing) player.pause(); else { if (!(await startAudio())) return; await player.play(); }
+  if (player.playing) player.pause(); else { if (!(await startAudio())) return; await player.play(settings.countIn); }
   syncTransport();
 }
 player.onState = syncTransport;
 player.onProgress = (p, d) => {
   $('progressFill').style.width = (d ? (p / d) * 100 : 0) + '%';
+  syncLoopRegion();
   $('timeNow').textContent = fmt(p / (settings.tempo / 100)); $('timeEnd').textContent = fmt(d / (settings.tempo / 100));
 };
 player.onChord = (ch) => { markRoot(ch ? ch.rootPc : null); currentRoot = ch ? ch.rootPc : currentRoot; };
@@ -392,6 +394,41 @@ function playAll() {
   toast('Playing every piece in turn. It starts again after the last one; press Stop to end.', 3600);
 }
 $('playAllBtn').addEventListener('click', playAll);
+
+// ---- A–B loop: first press marks the start of the bar you are in, the second the end of the bar you are in
+function syncLoopRegion() {
+  const r = $('loopRegion'), d = player.duration, b = $('abBtn');
+  const on = player.song && player.loopA != null;
+  r.hidden = !on;
+  if (on) {
+    const a = player.loopA, e = player.loopB != null ? player.loopB : player.pos || a;
+    r.style.left = (a / d * 100) + '%'; r.style.width = Math.max(0.6, (e - a) / d * 100) + '%';
+    r.classList.toggle('pending', player.loopB == null);
+  }
+  b.setAttribute('aria-pressed', String(player.loopB != null));
+  $('abLabel').textContent = player.loopA == null ? 'A–B' : player.loopB == null ? 'B?' : 'A–B';
+}
+$('abBtn').addEventListener('click', () => {
+  if (!player.song) { toast('Choose a piece first.'); return; }
+  const now = player.playing ? Math.max(0, (audio.now - player.anchor) * player.scale) : player.pos;
+  const bars = player.barSeconds();
+  if (player.loopA == null) {
+    let a = 0; for (const b of bars) if (b <= now + 1e-6) a = b;
+    player.loopA = a; player.loopB = null;
+    toast('Loop start set at this bar. Press A–B again at the end of the passage.');
+  } else if (player.loopB == null) {
+    let e = bars.find((b) => b > now + 0.05);
+    if (e == null || e <= player.loopA) e = bars[bars.length - 1];
+    player.loopB = e;
+    toast('Looping this passage. Press A–B again to stop looping.');
+    if (player.playing && now >= e) player.seek(player.loopA);
+  } else {
+    player.loopA = player.loopB = null;
+    toast('Loop off.');
+  }
+  syncLoopRegion();
+});
+syncLoopRegion();
 $('playBtn').addEventListener('click', togglePlay);
 $('stopBtn').addEventListener('click', () => { clearTimeout(nextTimer); recorder.stopPlayback(); player.stop(); markRoot(null); syncTransport(); });
 $('prevBtn').addEventListener('click', () => { const was = player.playing; loadSong(nextSongIndex(songIndex, -1)); if (was) player.play().then(syncTransport); });
@@ -590,6 +627,49 @@ checkbox('tapSounds', 'tapSounds');
 checkbox('vibrato', 'vibrato', (v) => { player.vibrato = v; });
 checkbox('tremolo', 'tremolo');
 checkbox('hands', 'hands', (v) => scene.setHands(v));
+checkbox('countIn', 'countIn');
+
+// ---- moving your own songs and recordings to another device
+async function offerFile(blob, name) {
+  const file = typeof File === 'function' ? new File([blob], name, { type: blob.type }) : null;
+  if (file && navigator.canShare && navigator.canShare({ files: [file] }) && /iPad|iPhone|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) {
+    await navigator.share({ files: [file], title: name });
+  } else {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+    toast('Saved ' + name);
+  }
+}
+$('exportBtn').addEventListener('click', async () => {
+  const mine = SONGS.filter((s) => s.user);
+  if (!mine.length) { toast('There is nothing to export yet: add a song or keep a recording first.'); return; }
+  const data = { format: 'concert-zither-songs', version: 1, app: APP_VERSION, exported: new Date().toISOString(), songs: mine };
+  try { await offerFile(new Blob([JSON.stringify(data)], { type: 'application/json' }), 'concert-zither-my-songs.json'); }
+  catch (e) { if (e && e.name !== 'AbortError') toast('Could not export: ' + (e.message || e), 4000); }
+});
+$('importFileBtn').addEventListener('click', () => $('importFile').click());
+$('importFile').addEventListener('change', async () => {
+  const f = $('importFile').files[0]; $('importFile').value = '';
+  if (!f) return;
+  let added = 0, skipped = 0;
+  try {
+    const text = await f.text();
+    if (/^\s*\{/.test(text)) {
+      const data = JSON.parse(text);
+      if (data.format !== 'concert-zither-songs' || !Array.isArray(data.songs)) throw new Error('This file is not a Concert Zither song export.');
+      for (const s of data.songs) {
+        const ok = s && typeof s.title === 'string' && (typeof s.abc === 'string' || (s.take && Array.isArray(s.events)));
+        if (!ok || SONGS.some((x) => x.id === s.id)) { skipped++; continue; }
+        if (!s.take) songFromAbc('K:' + (s.key || 'C') + '\n' + s.abc);       // reject anything that does not parse
+        SONGS.push({ ...s, user: true, category: s.take ? 'My Recordings' : 'My Songs' }); added++;
+      }
+    } else {
+      const { song } = songFromAbc(text); SONGS.push(song); added = 1;      // a plain ABC tune
+    }
+  } catch (e) { toast('Could not import: ' + (e.message || e), 5000); return; }
+  saveUserSongs(); renderList();
+  toast(added ? `Imported ${added} item${added > 1 ? 's' : ''}${skipped ? `; ${skipped} already here or unreadable` : ''}.` : 'Nothing new to import: everything in the file is already in the library.', 4500);
+});
 
 syncPractice();
 recorder.onChange();            // shows a take kept from the last session

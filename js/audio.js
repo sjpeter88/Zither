@@ -100,6 +100,15 @@ export class ZitherAudio {
   pluck(s, vel = 0.8, fret, time) { this._post({ type: 'pluck', s, vel, fret, time }); }
   setFret(s, fret, hammer = 0, time) { this._post({ type: 'fret', s, fret, hammer, time }); }
   bend(s, semis) { this._post({ type: 'bend', s, semis }); }
+  /** A short woodblock-like click (count-in). */
+  click(time, accent = false) {
+    if (!this.ctx || !this.master) return;
+    const t = Math.max(time, this.ctx.currentTime), o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = 'triangle'; o.frequency.value = accent ? 1760 : 1320;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(accent ? 0.5 : 0.32, t + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + 0.08);
+  }
   vibrato(s, depth, rate = 5.5, delay = 0.2, time) { this._post({ type: 'vib', s, depth, rate, delay, time }); }
   damp(s, time) { this._post({ type: 'damp', s, time }); }
   dampAll() { this._post({ type: 'dampAll' }); }

@@ -166,7 +166,7 @@ export function parseChord(sym) {
 // accompaniment patterns: [beat offset, role]; roles: B bass, A alternate bass,
 // C chord (all accompaniment strings), 0/1/2 single chord strings (arpeggio)
 const PATTERNS = {
-  waltz: { '3/4': [[0, 'B'], [1, 'C'], [2, 'C']], '6/8': [[0, 'B'], [1, 'C'], [1.5, 'A'], [2.5, 'C']] },
+  waltz: { '3/4': [[0, 'B'], [1, 'C'], [2, 'C']], '3/8': [[0, 'B'], [0.5, 'C'], [1, 'C']], '6/8': [[0, 'B'], [1, 'C'], [1.5, 'A'], [2.5, 'C']] },
   polka: { '2/4': [[0, 'B'], [0.5, 'C'], [1, 'A'], [1.5, 'C']], '4/4': [[0, 'B'], [1, 'C'], [2, 'A'], [3, 'C']] },
   arp: {
     '3/4': [[0, 'B'], [1, '0'], [1.5, '1'], [2, '2'], [2.5, '1']],
@@ -280,16 +280,31 @@ export class SongPlayer {
     this.resetStats();
     this.spb = 60 / song.tempo;                 // seconds per beat
     this.duration = this.compiled.beats * this.spb + 2.5;
-    this.pos = 0; this.next = 0;
+    this.pos = 0; this.next = 0; this.loopA = this.loopB = null;
     if (this.onProgress) this.onProgress(0, this.duration);
   }
 
-  async play() {
+  /** Length of one bar in quarter notes, and the length of one counted beat. */
+  barShape() {
+    const [n, d] = (this.song.meter || '4/4').split('/').map(Number);
+    const bar = n * 4 / d, beat = d === 8 && n >= 6 && n % 3 === 0 ? 1.5 : 4 / d;
+    return { bar, beat };
+  }
+
+  /** Seconds at which each bar starts (for snapping a loop to whole bars). */
+  barSeconds() { return this.compiled.barTimes.map((b) => b * this.spb); }
+
+  async play(countIn = false) {
     if (!this.song || this.playing) return;
     await this.audio.start();
     if (this.pos >= this.duration - 0.05) this.seek(0);
     this.playing = true;
     this.anchor = this.audio.now + 0.12 - this.pos / this.scale;
+    if (countIn) {                           // one bar of clicks before the music
+      const { bar, beat } = this.barShape(), start = this.audio.now + 0.12, step = beat * this.spb / this.scale;
+      for (let k = 0; k * beat < bar - 1e-6; k++) this.audio.click(start + k * step, k === 0);
+      this.anchor += bar * this.spb / this.scale;
+    }
     this.timer = setInterval(() => this._tick(), 25);
     this._tick();
     if (this.onState) this.onState();
@@ -453,6 +468,7 @@ export class SongPlayer {
     }
     const p = Math.max(0, (now - this.anchor) * this.scale);
     if (this.onProgress) this.onProgress(Math.min(p, this.duration), this.duration);
+    if (this.loopB != null && p >= this.loopB) { this.seek(this.loopA); return; }
     if (p >= this.duration) {
       this.playing = false; clearInterval(this.timer);
       this.pos = this.duration;

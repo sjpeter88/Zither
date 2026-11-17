@@ -39,6 +39,32 @@ B G B d A c | B G B d d2 | "D7"c B A G F A |1 "G"G4 B c :|2 "G"G4 G2 |:
 "D7"A B c B A c | "G"B d A c B d | "D7"c B A G F A |1 "G"G4 G2 :|2 "G"G4 z2 |]`,
   },
   {
+    id: 'sor-landler', category: 'Ländler & Waltzes',
+    title: 'Ländler (Guitar-Skole No. 18)',
+    composer: 'Fernando Sor', year: 1830, key: 'E', meter: '3/8', unit: '1/16', tempo: 100, style: 'waltz',
+    accuracy: 'score',
+    source: 'Melody from the Mutopia Project edition after the Guitar-Skole of A. Eggers (Royal Library, Copenhagen; public domain), converted from its LilyPond source; chords are mine, following the guitar bass.',
+    abc: `B2 | "E"E B G e B2 | E B G e B2 | "B7"D B A f B2 | D B A f B2 |
+"E"E G B e g b | "A"b2 c2 a2 | "B7"B,2 [fA]2 [fA]2 | "E"[eG]4 B2 |:
+"F#7"^A c F A c e | "B"e2 d2 B2 | "F#7"^A c F A c e | "B"e2 d2 B2 |
+"B7"b2 B2 B2 | "E"B2 g2 e2 | "F#7"d2 f e [c^A]2 | "B"B4 B2 |
+"E"E B G e B2 | E B G e B2 | "B7"D B A f B2 | D B A f B2 |
+"E"E G B e g b | "A"b2 c2 a2 | "B7"B,2 [fA]2 [fA]2 |1 "E"[eG]4 B2 :|2 "E"[eG]4 z2 |]`,
+  },
+  {
+    id: 'tyrolian-air', category: 'Ländler & Waltzes',
+    title: 'Tyrolian Air (60 National Airs, No. 14)',
+    composer: 'Felix Horetzky', year: 1830, key: 'E', meter: '3/4', unit: '1/8', tempo: 112, style: 'waltz',
+    accuracy: 'score',
+    source: 'Melody from the Mutopia Project edition (Boije collection No. 268, Music Library of Sweden; public domain), converted from its LilyPond source; chords are mine, following the guitar bass. Year approximate.',
+    abc: `B,2 | "E"E3/2E/2 G3/2G/2 B3/2B/2 | [BG] g e2 (3GBe | "B7"f2 a2 (3FAd | "E"[eG]2 [gB]2 (3BAD |
+"E"E3/2E/2 G3/2G/2 B3/2B/2 | B g e2 "C#7"(3Gc^e | "F#m"f2 [ac]2 "B7"(3FAd | "E"[eG]4 B,2 |
+"E"E3/2E/2 G3/2G/2 B3/2B/2 | [BG] g e2 (3GBe | "B7"f2 a2 (3FAd | "E"[eG]2 [gB]2 (3BAD |
+"E"E3/2E/2 G3/2G/2 B3/2B/2 | B g e2 "C#7"(3Gc^e | "F#m"f2 [ac]2 "B7"(3FAd | "E"[eG]4 (3GBe |
+"B7"(3ABd [fd]2 (3ABd | "E"(3GBe [gB]2 (3GBe | "B7"(3ABd [fd]2 (3ABd | "E"(3GBe [gB]2 B,2 |
+"E"E3/2E/2 G3/2G/2 B3/2B/2 | B g e2 "C#7"(3Gc^e | "F#m"f2 [ac]2 "B7"(3FAd | "E"[eG]4 z2 |]`,
+  },
+  {
     id: 'danube', category: 'Ländler & Waltzes',
     title: 'The Blue Danube — main theme',
     composer: 'Johann Strauss II', year: 1867, key: 'C', meter: '3/4', unit: '1/4', tempo: 156, style: 'waltz',
@@ -68,6 +94,23 @@ C E G | c2 [gc'] | [gc']2 [eg] | [eg]2 C | "C7"C E G | "F"c2 [ac'] | [ac']2 [fa]
     source: 'Written from memory; a very simple and widely known tune, but not checked against a score.',
     abc: `"C"G>A G/F/ | E C C | "G7"D G, G, | "C"E C C | G>A G/F/ | E C C | "G7"D G, G, | "C"C3 |
 "G7"D G, G, | "C"E C C | "G7"D G, G, | "C"E C C | G>A G/F/ | E C C | "G7"D G, G, | "C"C3 |]`,
+  },
+  {
+    id: 'blitz', category: 'Polkas & Folk Dances',
+    title: 'Thunder and Lightning — fast polka, Op. 324',
+    composer: 'Johann Strauss II', year: 1868, key: 'G', meter: '2/4', unit: '1/16', tempo: 126, style: 'polka',
+    accuracy: 'score',
+    source: 'Melody from the Mutopia Project edition of the piano score (C. M. Cady, 1878; public domain), converted from its LilyPond source; chords taken from its left hand. Abridged: the first part only (main theme, its repeat and the closing phrase); the introduction, the middle strain and the trio are omitted.',
+    abc: `[fd][ec] | "D7"c4 [FD]4 | c4 [FD]4 | [ec]2 z[ec] [ec]2 z[ec] | [ec]6 [fd][ec] |
+"G"[BG]4 G4 | [BG]4 G4 | e2 ze e2 ze | e6 [fd][ec] |
+"D7"c4 f4 | f4 c'4 | [fd]2 z[fd] [fd]2 z[fd] | [fd]4- [fd]edc |
+"G"[BG]4 g4 | g4 [bg]4 | g2 zg g2 zg | g6 [fd][ec] |
+"D7"c4 [FD]4 | c4 [FD]4 | [ec]2 z[ec] [ec]2 z[ec] | [ec]6 [fd][ec] |
+"G"[BG]4 G4 | [BG]4 G4 | e2 ze e2 ze | e6 ed |
+"A7"[^cA]4 g4 | g4 [bg]4 | "D"[af]3[af] [af]3[af] | [af]4 ba^ga |
+"G"b2 g2 e2 f2 | "A7"g2 a2 b2 ^c'2 | "D"d'2 d2 d2 d2 | _e2 d2 =e2 d2 |
+"Bb"[=fd]6 d2 | "D"_e2 d2 =e2 d2 | [fd]6 d2 | "G#dim"[^g=f]2 z2 d2 z2 |
+[^g=f]2 z2 d2 z2 | "D7"[af]2 z2 z2 e'2 | d'2 c'2 b2 a2 | "G"g4 z4 |]`,
   },
   {
     id: 'hiatamadl', category: 'Polkas & Folk Dances',

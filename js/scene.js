@@ -8,7 +8,9 @@ const X = (x) => x - L / 2;             // model x (mm)        -> scene X
 const Z = (d) => D / 2 - d;             // distance from near edge -> scene Z (near edge faces the player)
 
 // ---- small deterministic noise helpers ----------------------------------------
-function hash(x, y) { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); }
+// value-noise lattice from a fixed random table (much faster than a sine hash, same character)
+const NOISE = (() => { const t = new Float32Array(65536); let x = 0x9e3779b9; for (let i = 0; i < t.length; i++) { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; t[i] = (x >>> 0) / 4294967296; } return t; })();
+function hash(x, y) { return NOISE[(x & 255) | ((y & 255) << 8)]; }
 function noise(x, y) {
   const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
   const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
@@ -448,7 +450,7 @@ export class ZitherScene {
       grp.rotation.x = -0.55;                 // the finger rises towards the player
       grp.visible = false; grp.renderOrder = 6;
       this.inst.add(grp);
-      return { grp, mats, r, x: 0, d: 0, tx: 0, td: 0, y: 0, dip: 0, used: -9, lift: -9, string: -1, alpha: 0, baseY: GEOM.openY };
+      return { grp, mats, r, x: 0, d: 0, tx: 0, td: 0, y: 0, dip: 0, used: -1e9, lift: -1e9, string: -1, alpha: 0, baseY: GEOM.openY };
     };
     const thumbExtras = (grp) => {
       const m = metal.clone();
@@ -610,7 +612,9 @@ export class ZitherScene {
 
   /** Change the wood finish of the soundbox. */
   setFinish(name) {
-    this.finishPal = FINISHES[name] || FINISHES.sunburst;
+    const pal = FINISHES[name] || FINISHES.sunburst;
+    if (pal === this.finishPal) return;               // already painted: repainting costs a noticeable moment
+    this.finishPal = pal;
     if (this._repaint) this._repaint();
   }
 
